@@ -31,13 +31,23 @@ def attach_mcp_tools(registry: ToolRegistry, settings: Settings,
         def _call(_c=client_ref, _n=fn["name"], **kwargs):
             return _c.call_tool(_n, kwargs)
 
-        # 同名工具：MCP 版本覆盖本地版本（服务端是事实之源）
+        # 同名工具：MCP 版本覆盖本地版本（服务端是事实之源）。
+        # 工具名必须与本地一致——安全后处理按名匹配（危急值/引用校验）。
         registry.register(fn["name"],
                           fn["description"] or f"(MCP) {fn['name']}",
                           fn.get("parameters") or {"type": "object", "properties": {}},
                           _call)
         count += 1
+    registry.mcp_client = client  # 供 agent.close() 统一释放（防线程/会话泄漏）
     if tracer:
         tracer.log("mcp_connected", tools=count, url=settings.mcp_server_url)
     print(f"🔗 [MCP] 已连接 {settings.mcp_server_url}，注册 {count} 个工具")
     return True
+
+
+def close_mcp(registry: ToolRegistry) -> None:
+    """关闭挂在该注册表上的 MCP 连接（若存在）。"""
+    client = getattr(registry, "mcp_client", None)
+    if client is not None:
+        client.close()
+        registry.mcp_client = None

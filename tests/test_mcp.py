@@ -64,13 +64,24 @@ class TestServerFunctions:
     """直接调用 server 模块的工具函数（FastMCP 装饰器返回原函数）。"""
 
     def test_query_appointment_tool(self, med_server):
-        out = json.loads(med_server.query_appointment_tool("GH-2026-001"))
+        out = json.loads(med_server.query_appointment("GH-2026-001"))
         assert out["success"] and out["appointment"]["department"] == "呼吸内科"
 
     def test_interaction_tool(self, med_server):
-        out = json.loads(med_server.check_drug_interaction_tool("华法林", "阿司匹林"))
+        out = json.loads(med_server.check_drug_interaction("华法林", "阿司匹林"))
         assert out["severity"] == "高风险"
 
     def test_search_knowledge_tool(self, med_server):
-        out = json.loads(med_server.search_knowledge_tool("医保报销"))
+        out = json.loads(med_server.search_knowledge("医保报销"))
         assert out["success"] and out["chunks"]
+
+
+    def test_tool_names_align_local_registry(self, med_server):
+        """回归：MCP 工具名必须与本地同名（同名覆盖），否则按名匹配的
+        安全后处理（危急值/引用校验）会静默失效。"""
+        from app.agent.tools.registry import ToolDeps, build_tool_registry
+        local = set(build_tool_registry(ToolDeps()).names())
+        exposed = {"query_appointment", "query_medicine", "check_drug_interaction",
+                   "query_lab_report", "query_department", "search_knowledge"}
+        assert exposed <= local  # 服务端暴露的每个名字都能在本地找到同名工具
+        assert all(hasattr(med_server, n) for n in exposed)

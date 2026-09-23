@@ -166,9 +166,14 @@ class BaseAgentRuntime:
                 self.tracer.log("fake_citations_removed", fakes=fakes)
             final = append_sources_if_missing(final, sources)
         for name, out in outputs:
-            if name == "query_lab_report" and '"has_critical": true' in out:
-                final = ("该报告含危急值，请立即联系开单医生或前往急诊！\n" + final)
-                forced_human = True
+            if name != "query_lab_report":
+                continue
+            try:  # 按字段取值而非子串匹配——序列化格式变化不会让防线失效
+                if json.loads(out).get("has_critical") is True:
+                    final = ("该报告含危急值，请立即联系开单医生或前往急诊！\n" + final)
+                    forced_human = True
+            except json.JSONDecodeError:
+                pass
         return final, forced_human
 
     # ---------- 历史压缩 ----------

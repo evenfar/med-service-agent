@@ -297,7 +297,10 @@ class MockLLMClient(BaseLLMClient):
     # ---- ReAct 脚本 ----
 
     def _react(self, messages, user: str, has_tools: bool) -> LLMResponse:
-        key = (hash(messages[0]["content"]) % 10**8, user[:120])
+        # 键里掺入"当前是第几条用户消息"：同一会话重复问同一问题时，
+        # 步数计数从头开始（否则第二次直接跳到 final 之后的兜底回复）
+        turn_no = sum(1 for m in messages if m.get("role") == "user")
+        key = (hash(messages[0]["content"]) % 10**8, user[:120], turn_no)
         n = self._bump(key)
         plan = self._plan(user)
         if has_tools and n <= len(plan):

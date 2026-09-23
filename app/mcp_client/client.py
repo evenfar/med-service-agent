@@ -39,9 +39,14 @@ class MCPClient:
         self._thread = threading.Thread(target=run_loop, daemon=True,
                                         name="mcp-client-loop")
         self._thread.start()
-        self._connected.wait(timeout=30)
+        if not self._connected.wait(timeout=30):
+            self.close()
+            raise TimeoutError(f"MCP server 连接超时(30s): {self._server_url}")
         if errors:
             raise errors[0]
+        if not tool_definitions:  # 已连接但零工具：视为异常，交给上层降级
+            self.close()
+            raise RuntimeError("MCP server 连接成功但未发现任何工具")
         return tool_definitions
 
     async def _run(self, tool_definitions: list[dict], errors: list[Exception]):

@@ -67,8 +67,10 @@ def _tokens(text: str) -> list[str]:
     for seg in re.findall(r"[a-zA-Z0-9]+|[\u4e00-\u9fff]+", text.lower()):
         if seg.isascii():
             toks.append(seg)
+        elif len(seg) == 1:
+            toks.append(seg)  # 单个汉字无法成 bigram，整字保留
         else:
-            toks.extend(seg[i:i + 2] for i in range(len(seg) - 1)) or toks.append(seg)
+            toks.extend(seg[i:i + 2] for i in range(len(seg) - 1))
     return toks
 
 

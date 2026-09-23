@@ -71,3 +71,8 @@ class MedicalAgent(BaseAgentRuntime):
         if forced_human:
             result.requires_human = True
         return self.finish_turn(result)
+
+    def close(self) -> None:
+        super().close()
+        from app.agent.tools.mcp_bridge import close_mcp
+        close_mcp(self.tools)  # 释放 MCP 后台线程与 HTTP 会话（若启用）

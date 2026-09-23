@@ -44,6 +44,7 @@ class Sandbox:
         reset_mock_data()  # 每条用例重置模拟数据，保证可复现（写操作不留状态）
         settings = self._settings(case)
         session_path = str(self.tmp_root / f"{case.id}.json")
+        Path(session_path).unlink(missing_ok=True)  # 清残留：重跑同用例不串档
         tracer = Tracer()
         agent = None
         try:

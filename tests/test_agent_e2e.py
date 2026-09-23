@@ -133,3 +133,13 @@ class TestCompressionAndMemory:
         agent.chat("你好")
         assert agent.memory_manager.stm.facts == []
         agent.close()
+
+
+class TestRepeatQuestion:
+    def test_same_question_twice_both_use_tools(self, agent):
+        """回归：mock 步数计数按回合复位——重复提问不能退化为兜底问候。"""
+        r1 = agent.chat("布洛芬怎么吃")
+        assert "布洛芬" in r1.reply
+        r2 = agent.chat("布洛芬怎么吃")
+        assert "布洛芬" in r2.reply  # 第二次也要走 query_medicine
+        assert _tools_used(agent).count("query_medicine") == 2

@@ -96,3 +96,16 @@ class TestRetrieverConsistency:
         assert hits and hits[0].chunk.doc == "就诊指南"
         src = f"{hits[0].chunk.doc}#{hits[0].chunk.section}"
         assert src == "就诊指南#医保报销"
+
+
+class TestTokenizer:
+    def test_cjk_bigram_only_no_whole_word(self):
+        """回归：多字中文段只出 bigram（旧实现 `extend() or append()` 会混入整词）。"""
+        from app.agent.rag.embedder import _tokens
+        toks = _tokens("布洛芬")
+        assert toks == ["布洛", "洛芬"]
+
+    def test_single_cjk_char_kept(self):
+        from app.agent.rag.embedder import _tokens
+        assert _tokens("药") == ["药"]
+        assert _tokens("医保 md") == ["医保", "md"]
