@@ -1,0 +1,9 @@
+openai>=1.0.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+python-dotenv>=1.0.0
+# MCP SDK 锁 v1：v2 改名 FastMCP→MCPServer 等破坏性变更（协议稳定，SDK 会漂移）
+mcp>=1.8,<2
+pytest>=8.0.0
+# 可选：Chroma 向量数据库后端（默认用零依赖的 local 后端，不装也能跑）
+# chromadb>=0.5.0

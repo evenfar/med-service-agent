@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.env
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+# 运行时产物：会话/记忆/向量索引/轨迹全部不入库
+app/sessions/
