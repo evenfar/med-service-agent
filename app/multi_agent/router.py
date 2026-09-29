@@ -19,8 +19,9 @@ DEFAULT_AGENT = "appointment"
 
 
 class Router:
-    def __init__(self, client: BaseLLMClient):
+    def __init__(self, client: BaseLLMClient, trace_callback=None):
         self.client = client
+        self.trace_callback = trace_callback
 
     def route(self, user_input: str, history: Optional[list[dict]] = None) -> str:
         """system 承载规则与最近对话，user 只放当前消息 ——
@@ -34,11 +35,16 @@ class Router:
                 system += "\n\n最近对话：\n" + "\n".join(
                     f"{'用户' if m['role'] == 'user' else '客服'}: {m['content']}"
                     for m in recent)
+        messages = [{"role": "system", "content": system},
+                    {"role": "user", "content": user_input}]
+        if self.trace_callback:
+            self.trace_callback("路由器 LLM 请求", {"messages": messages})
         resp = self.client.chat(
-            [{"role": "system", "content": system},
-             {"role": "user", "content": user_input}],
+            messages,
             temperature=0.0, max_tokens=10, purpose="router")
         raw = (resp.content or "").strip().lower()
+        if self.trace_callback:
+            self.trace_callback("路由器 LLM 响应", {"content": resp.content})
         for agent in VALID_AGENTS:
             if agent in raw:
                 return agent

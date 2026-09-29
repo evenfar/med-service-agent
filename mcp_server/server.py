@@ -38,7 +38,14 @@ from app.config.settings import Settings  # noqa: E402
 
 mcp = FastMCP("med-tools", host="127.0.0.1", port=9301)
 _settings = Settings()
-_retriever = build_retriever(_settings)
+_retriever = None  # 惰性构建：import 时不碰网络/索引，首次检索才初始化
+
+
+def _get_retriever():
+    global _retriever
+    if _retriever is None:
+        _retriever = build_retriever(_settings)
+    return _retriever
 
 
 @mcp.tool()
@@ -75,7 +82,7 @@ def query_department(keyword: str) -> str:
 def search_knowledge(query: str) -> str:
     """检索医院知识库（就诊/用药/指标/科室），返回带来源片段。"""
     try:
-        chunks = _retriever.search(query, top_k=3)
+        chunks = _get_retriever().search(query, top_k=3)
     except (FileNotFoundError, ValueError) as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
     results = [{"source": f"{c.chunk.doc}#{c.chunk.section}", "text": c.chunk.text}

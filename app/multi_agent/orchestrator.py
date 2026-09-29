@@ -31,7 +31,7 @@ class MultiAgentOrchestrator(BaseAgentRuntime):
 
     def _init_components(self) -> None:
         s = self.settings
-        self.router = Router(self.client)
+        self.router = Router(self.client, self._trace_debug)
         if s.memory_enabled:
             self.memory_manager = MemoryManager(
                 client=self.client, user_id=s.memory_user_id,
@@ -58,6 +58,7 @@ class MultiAgentOrchestrator(BaseAgentRuntime):
 
         self.raw_messages.append({"role": "user", "content": user_input})
         agent_key = self.router.route(user_input, self.raw_messages[:-1])
+        self._trace_debug("子 Agent 路由结果", {"agent": agent_key})
         spec = SUBAGENT_SPECS[agent_key]
         self.tracer.log_route(spec.name)
         print(f"\n🔀 [路由] → {spec.name}")

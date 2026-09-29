@@ -54,9 +54,15 @@ class TestBridgeDegradation:
 @pytest.fixture(scope="module")
 def med_server():
     pytest.importorskip("mcp")
-    from app.agent.rag.retriever import build_index
-    build_index(Settings(mock_mode=True))  # server 按默认路径建/读索引
-    import mcp_server.server as srv
+    import os
+    # 本机存在含真实 Key 的 .env 时，强制 server 模块以离线模式装配（测试零成本）
+    os.environ["MOCK_MODE"] = "1"
+    try:
+        from app.agent.rag.retriever import build_index
+        build_index(Settings(mock_mode=True))  # server 按默认路径建/读索引
+        import mcp_server.server as srv
+    finally:
+        os.environ.pop("MOCK_MODE", None)
     return srv
 
 

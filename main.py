@@ -1,4 +1,4 @@
-"""CLI 入口：python main.py [--mock] [--multi]
+"""CLI 入口：python main.py [--mock] [--multi] [--trace]
 
 命令：quit/exit 退出 | reset 重置会话 | skills 查看技能 | memory 查看记忆
 """
@@ -30,6 +30,7 @@ def main() -> None:
         from app.agent.chat import MedicalAgent
         agent = MedicalAgent(settings)
         mode = "单 Agent"
+    agent.trace_enabled = "--trace" in args
 
     offline = settings.mock_mode or not settings.openai_api_key
     print("=" * 56)
@@ -39,6 +40,8 @@ def main() -> None:
     print("  试试: 查预约 GH-2026-001 / 布洛芬怎么吃 / 华法林和阿司匹林能一起吃吗")
     print("        帮我看看报告 LAB-2026-004 / 医保报销流程 / 我突然胸痛")
     print("  命令: quit退出 · reset重置 · skills技能 · memory记忆")
+    if agent.trace_enabled:
+        print("  TRACE: 显示模型输入/响应、工具调用/结果与结构化处理（不含模型私有思维链）")
     print("=" * 56)
     if agent.history_size:
         print(f"💬 已恢复上次会话（{agent.history_size} 条历史）")

@@ -36,6 +36,7 @@ class BaseAgentRuntime:
         self.settings = settings
         self.tracer = tracer or Tracer()
         self.client = client or build_client(settings, self.tracer)
+        self.trace_enabled = False
         self.session_path = session_path or settings.session_path
         self.raw_messages: list[dict] = []
         self.summary: Optional[str] = None
@@ -54,6 +55,13 @@ class BaseAgentRuntime:
 
     def _restore_extra(self, loaded: dict) -> None:
         """会话恢复钩子（如恢复短期记忆）。"""
+
+    def _trace_debug(self, event: str, payload: dict) -> None:
+        """仅在显式启用 --trace 时输出可观察运行数据，不写入磁盘。"""
+        if not self.trace_enabled:
+            return
+        print(f"\n🔎 [TRACE] {event}")
+        print(json.dumps(payload, ensure_ascii=False, indent=2, default=str))
 
     # ---------- 会话 ----------
 
@@ -96,9 +104,18 @@ class BaseAgentRuntime:
         used: list[str] = []
         outputs: list[tuple[str, str]] = []
         tools = registry.definitions if registry else None
-        for _ in range(steps):
-            resp = self.client.chat(self.render_messages(system_content),
-                                    tools=tools, purpose=purpose)
+        for step in range(steps):
+            messages = self.render_messages(system_content)
+            self._trace_debug("LLM 请求", {
+                "purpose": purpose, "step": step + 1,
+                "messages": messages, "tools": tools,
+            })
+            resp = self.client.chat(messages, tools=tools, purpose=purpose)
+            self._trace_debug("LLM 可见响应", {
+                "content": resp.content, "tool_calls": resp.tool_calls,
+                "prompt_tokens": resp.prompt_tokens,
+                "completion_tokens": resp.completion_tokens,
+            })
             if not resp.tool_calls:
                 self.raw_messages.append({"role": "assistant", "content": resp.content})
                 return resp.content, used, outputs
@@ -109,30 +126,43 @@ class BaseAgentRuntime:
                                              "arguments": _dump_args(tc["arguments"])}}
                                for tc in resp.tool_calls]})
             for tc in resp.tool_calls:
+                self._trace_debug("工具调用", {
+                    "name": tc["name"], "arguments": tc["arguments"],
+                })
                 out = (registry.execute(tc["name"], tc["arguments"])
                        if registry else '{"error": "当前没有可用工具"}')
+                self._trace_debug("工具结果", {"name": tc["name"], "output": out})
                 used.append(tc["name"])
                 outputs.append((tc["name"], out))
                 self.raw_messages.append({"role": "tool", "tool_call_id": tc["id"],
                                           "content": out})
         # 步数用尽：去掉工具再给一次收尾机会（防"截断在半路"）
-        resp = self.client.chat(self.render_messages(system_content), purpose=purpose)
+        messages = self.render_messages(system_content)
+        self._trace_debug("LLM 收尾请求（工具已禁用）", {
+            "purpose": purpose, "messages": messages,
+        })
+        resp = self.client.chat(messages, purpose=purpose)
+        self._trace_debug("LLM 收尾响应", {"content": resp.content})
         self.raw_messages.append({"role": "assistant", "content": resp.content})
         return resp.content, used, outputs
 
     # ---------- 结构化提取 ----------
 
     def extract_structured(self, text: str) -> MedicalResponse:
-        return self.client.parse_structured(
+        self._trace_debug("结构化提取输入", {"text": text})
+        result = self.client.parse_structured(
             [{"role": "system", "content": EXTRACT_SYSTEM},
              {"role": "user", "content": text}],
             MedicalResponse, purpose="extract")
+        self._trace_debug("结构化提取结果", result.model_dump(mode="json"))
+        return result
 
     # ---------- 安全（第10期，单Agent与多Agent共用） ----------
 
     def handle_redflag(self, user_input: str) -> Optional[MedicalResponse]:
         """急症红线短路：规则命中直接返回急诊应答，不进 LLM（零延迟零漏报）。"""
         flags = detect_red_flags(user_input)
+        self._trace_debug("急症红旗检查", {"flags": flags, "matched": bool(flags)})
         if not flags:
             return None
         self.tracer.log("redflag_shortcut", flags=flags)
@@ -174,6 +204,9 @@ class BaseAgentRuntime:
                     forced_human = True
             except json.JSONDecodeError:
                 pass
+        self._trace_debug("安全后处理结果", {
+            "used_tools": used, "forced_human": forced_human, "reply": final,
+        })
         return final, forced_human
 
     # ---------- 历史压缩 ----------
@@ -203,6 +236,11 @@ class BaseAgentRuntime:
             self.memory_manager.update_short_term(self.raw_messages[-6:])
         self.maybe_compress()
         self.save()
+        self._trace_debug("会话已保存", {
+            "session_path": self.session_path,
+            "message_count": len(self.raw_messages),
+            "summary_present": bool(self.summary),
+        })
         return result
 
     def close(self) -> None:
