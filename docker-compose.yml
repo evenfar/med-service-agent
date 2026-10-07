@@ -1,0 +1,25 @@
+# 医疗健康 Agent API —— 一键容器化启动
+# ⚠️ 未在本机 compose 实测（本机无 Docker），按 Compose v2 规范编写。
+# 启动：docker compose up -d --build     日志：docker compose logs -f
+# 健康检查：curl http://127.0.0.1:8305/health
+# 停止：docker compose down
+services:
+  med-agent:
+    build: .
+    image: med-service-agent:latest
+    container_name: med-service-agent
+    ports:
+      - "8305:8305"            # 宿主机:容器 —— 浏览器开 http://127.0.0.1:8305
+    # 可选注入 .env（OPENAI_API_KEY 等）：文件缺失也不报错，服务自动进入离线
+    # mock 模式；required:false 需 Compose v2.24+，旧版请改为注释掉整段
+    # 并用 docker run --env-file，或保证 .env 存在。
+    env_file:
+      - path: .env
+        required: false
+    # 会话/记忆/知识库索引落在具名卷：重建容器不丢运行时数据
+    volumes:
+      - med-sessions:/app/app/sessions
+    restart: unless-stopped    # 崩溃或宿主机重启后自动拉起；手动 stop 则不拉起
+
+volumes:
+  med-sessions:

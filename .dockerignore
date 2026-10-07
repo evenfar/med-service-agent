@@ -1,0 +1,29 @@
+# ============================================================
+# 密钥与本地环境绝不进入镜像 —— .env 含 OPENAI_API_KEY 等真实密钥，
+# 一旦 COPY . 就会永久烧进镜像层（即使后删也可从层里找回），必须在此排除！
+# 运行时改用 compose 的 env_file / docker run --env-file 注入，
+# 镜像本身保持零密钥、可安全分发。
+# ============================================================
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+
+# 版本库元数据与 CI 配置：镜像不需要 git 历史
+.git
+.gitignore
+.github
+
+# Python 字节码与测试缓存：纯本地产物，进了镜像只会撑大体积
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+**/.pytest_cache/
+.venv/
+venv/
+
+# 运行时产物（会话/记忆/向量索引/轨迹，与 .gitignore 同款策略）：
+# 容器首启按需重建（离线模式自动建 kb 索引），持久化交给 compose 挂卷
+app/sessions/
