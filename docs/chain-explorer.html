@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小医 · 医疗健康Agent全链路浏览器</title>
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#11161d; --panel2:#171e28; --panel3:#1c2530;
+    --line:#26303d; --line2:#33404f;
+    --txt:#cdd6e1; --dim:#8194a6; --faint:#5b6b7b;
+    --blue:#58a6ff; --green:#3fb950; --red:#f85149; --orange:#f0883e;
+    --purple:#bc8cff; --cyan:#39c5cf; --yellow:#d29922; --gray:#8b949e;
+    --mono:Consolas,"Courier New",monospace;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{background:var(--bg); color:var(--txt);
+    font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif; font-size:14px;}
+  code,.mono,pre{font-family:var(--mono);}
+  a{color:var(--blue);}
+
+  /* ---------- 头部与Tab ---------- */
+  header{position:sticky; top:0; z-index:50; background:rgba(11,15,20,.94);
+    border-bottom:1px solid var(--line); backdrop-filter:blur(4px);}
+  .head-in{max-width:1280px; margin:0 auto; padding:14px 20px 0;}
+  .brand{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;}
+  .brand h1{font-size:19px; letter-spacing:.5px;}
+  .brand h1 b{color:var(--blue);}
+  .brand .sub{color:var(--dim); font-size:12px;}
+  .tabs{display:flex; gap:4px; margin-top:12px; flex-wrap:wrap;}
+  .tabs button{background:none; border:none; color:var(--dim); cursor:pointer;
+    font-size:14px; padding:9px 16px; border-bottom:2px solid transparent;
+    font-family:inherit;}
+  .tabs button:hover{color:var(--txt);}
+  .tabs button.on{color:var(--blue); border-bottom-color:var(--blue);}
+  .tabs button .k{font-size:11px; color:var(--faint); margin-right:5px;}
+  main{max-width:1280px; margin:0 auto; padding:20px;}
+  section.view{display:none;}
+  section.view.on{display:block;}
+  .hint{color:var(--faint); font-size:12px; margin:6px 0 14px;}
+  .hint b{color:var(--dim); font-weight:normal;}
+
+  /* ---------- 通用卡片 ---------- */
+  .card{background:var(--panel); border:1px solid var(--line);
+    border-radius:10px; padding:14px 16px;}
+  .card h3{font-size:14px; color:var(--txt); margin-bottom:8px;}
+  .chip{display:inline-block; padding:1px 8px; border-radius:10px; font-size:11px;
+    border:1px solid var(--line2); color:var(--dim); margin:2px 3px 2px 0;}
+  .tag{font-size:11px; padding:1px 7px; border-radius:4px; font-family:var(--mono);}
+  .switch{display:inline-flex; align-items:center; gap:8px; cursor:pointer;
+    color:var(--dim); font-size:13px; user-select:none;}
+  .switch .knob{width:34px; height:18px; border-radius:10px; background:var(--panel3);
+    border:1px solid var(--line2); position:relative; transition:.15s;}
+  .switch .knob::after{content:""; position:absolute; width:12px; height:12px;
+    border-radius:50%; background:var(--dim); top:2px; left:2px; transition:.15s;}
+  .switch.on .knob{background:#1c3a5f; border-color:var(--blue);}
+  .switch.on .knob::after{left:17px; background:var(--blue);}
+  .switch.on{color:var(--blue);}
+  button.btn{background:var(--panel3); color:var(--txt); border:1px solid var(--line2);
+    border-radius:6px; padding:6px 14px; cursor:pointer; font-size:13px; font-family:inherit;}
+  button.btn:hover{border-color:var(--blue); color:var(--blue);}
+  button.btn:disabled{opacity:.35; cursor:not-allowed;}
+  button.btn.pri{background:#173a5e; border-color:#2d5b8f; color:#cfe6ff;}
+  button.btn.pri:hover{border-color:var(--blue);}
+
+  /* ---------- Tab1 主链路 ---------- */
+  .flow{display:flex; align-items:stretch; gap:0; flex-wrap:wrap; row-gap:26px; margin-top:8px;}
+  .node{position:relative; width:150px; min-height:118px; background:var(--panel2);
+    border:1px solid var(--line2); border-radius:10px; padding:10px 10px 8px;
+    cursor:pointer; transition:.15s; display:flex; flex-direction:column;}
+  .node:hover{transform:translateY(-3px); border-color:var(--nc,var(--blue));
+    box-shadow:0 4px 14px rgba(0,0,0,.45);}
+  .node.hl{border-color:var(--nc,var(--blue)); box-shadow:0 0 0 2px var(--nc,var(--blue)) inset,
+    0 0 16px color-mix(in srgb,var(--nc,var(--blue)) 35%, transparent);}
+  .node .no{font-size:11px; font-family:var(--mono); color:var(--nc,var(--blue));}
+  .node .tt{font-size:15px; font-weight:bold; margin:3px 0 5px; color:#e8eef5;}
+  .node .fl{font-size:10.5px; color:var(--faint); font-family:var(--mono); line-height:1.5;
+    margin-top:auto; word-break:break-all;}
+  .node.multi{display:none; border-style:dashed;}
+  body.multi .node.multi{display:flex;}
+  body.multi .arr.multi-arr{display:flex;}
+  .arr{width:34px; display:flex; align-items:center; justify-content:center;
+    color:var(--faint); font-size:17px; flex:none;}
+  .arr.multi-arr{display:none;}
+  .node.sm{width:112px; min-height:96px; padding:8px;}
+  .node.sm .tt{font-size:12.5px;}
+  .node.sm .fl{font-size:9.5px;}
+  .legend{display:flex; gap:14px; flex-wrap:wrap; margin-top:18px; color:var(--faint); font-size:12px;}
+  .legend i{display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:5px;}
+  .prin-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(270px,1fr));
+    gap:14px; margin-top:22px;}
+  .prin-grid .card h3{display:flex; align-items:center; gap:8px; margin-bottom:10px;}
+  .prin-grid .ptext{color:var(--dim); font-size:12.5px; line-height:1.9;}
+  .prin-grid .ptext code{color:var(--cyan); font-size:11.5px;
+    background:var(--panel2); padding:1px 5px; border-radius:4px;}
+
+  /* ---------- 详情弹窗 ---------- */
+  #mask{position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:90; display:none;}
+  #mask.on{display:block;}
+  #modal{position:fixed; z-index:91; top:50%; left:50%; transform:translate(-50%,-52%);
+    width:min(680px,92vw); max-height:84vh; overflow:auto; display:none;
+    background:var(--panel); border:1px solid var(--line2); border-radius:12px;
+    padding:20px 22px; box-shadow:0 12px 48px rgba(0,0,0,.6);}
+  #modal.on{display:block;}
+  #modal h2{font-size:17px; margin-bottom:4px;}
+  #modal .mfile{font-family:var(--mono); font-size:12px; color:var(--cyan); margin-bottom:12px;}
+  #modal .msec{margin:12px 0;}
+  #modal .msec .lab{font-size:11px; color:var(--faint); letter-spacing:1px; margin-bottom:5px;}
+  #modal .msec .val{background:var(--panel2); border:1px solid var(--line);
+    border-radius:8px; padding:10px 12px; font-size:13px; line-height:1.75; color:var(--txt);}
+  #modal .msec .val.mono{font-family:var(--mono); font-size:12px; white-space:pre-wrap; word-break:break-all;}
+  #modal .msec .val .io{color:var(--green);}
+  #modal .msec .val .io2{color:var(--orange);}
+  #modal .mclose{position:absolute; top:12px; right:14px; background:none; border:none;
+    color:var(--dim); font-size:20px; cursor:pointer;}
+  #modal .mclose:hover{color:var(--red);}
+
+  /* ---------- Tab2 一次消息的旅程 ---------- */
+  .jw-head{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:14px;}
+  .jw-q{background:var(--panel2); border:1px solid var(--line); border-radius:8px;
+    padding:8px 14px; color:#e8eef5;}
+  .jw-q .who{color:var(--blue); font-size:12px; margin-right:8px;}
+  .steps{display:flex; gap:6px; flex-wrap:wrap; margin:0 0 14px;}
+  .steps .st{width:30px; height:30px; border-radius:50%; border:1px solid var(--line2);
+    background:var(--panel2); color:var(--dim); font-size:12px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;}
+  .steps .st.done{border-color:var(--blue); color:var(--blue);}
+  .steps .st.cur{background:#173a5e; border-color:var(--blue); color:#fff;}
+  .jw-desc{margin:0 0 14px;}
+  .jw-desc .jw-title{font-size:15px; color:#e8eef5; margin-bottom:6px;}
+  .jw-desc .jw-note{color:var(--dim); font-size:13px; line-height:1.8;}
+  .jw-desc .jw-note code{color:var(--cyan); background:var(--panel2); padding:1px 5px;
+    border-radius:4px; font-size:12px;}
+  .msgs{display:flex; flex-direction:column; gap:10px;}
+  .msg{border:1px solid var(--line); border-left:3px solid var(--mc,var(--gray));
+    background:var(--panel2); border-radius:8px; padding:9px 12px;}
+  .msg .mh{display:flex; gap:8px; align-items:center; margin-bottom:5px;}
+  .msg .role{font-size:11px; font-weight:bold; color:var(--mc,var(--gray));
+    font-family:var(--mono); letter-spacing:.5px;}
+  .msg .idx{font-size:10px; color:var(--faint);}
+  .msg .new{font-size:10px; color:#0b0f14; background:var(--green); border-radius:4px;
+    padding:1px 6px; font-weight:bold;}
+  .msg .body{font-family:var(--mono); font-size:12px; white-space:pre-wrap;
+    word-break:break-all; color:var(--txt); line-height:1.65; max-height:190px; overflow:auto;}
+  .msg .body .cut{color:var(--faint);}
+  .jw-ctrl{display:flex; gap:10px; align-items:center; margin-top:16px;}
+  .jw-prog{color:var(--dim); font-size:12px;}
+
+  /* ---------- Tab3 RAG ---------- */
+  .rtree{display:flex; flex-direction:column; align-items:center; gap:0;}
+  .rbox{background:var(--panel2); border:1px solid var(--line2); border-radius:10px;
+    padding:10px 18px; text-align:center;}
+  .rbox .rt{font-size:14px; font-weight:bold;}
+  .rbox .rd{font-size:12px; color:var(--dim); margin-top:4px; line-height:1.7;}
+  .rbox .rd code{color:var(--cyan);}
+  .varrow{color:var(--faint); font-size:16px; padding:4px 0; text-align:center; line-height:1;}
+  .strats{display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin:10px 0;}
+  .strat{width:250px; background:var(--panel2); border:1px solid var(--line2);
+    border-radius:10px; padding:12px 14px; text-align:left;}
+  .strat .sname{font-size:14px; font-weight:bold; color:var(--sc,var(--blue));}
+  .strat .sroute{font-family:var(--mono); font-size:11px; color:var(--faint); margin:3px 0 7px;}
+  .strat .sdesc{font-size:12px; color:var(--dim); line-height:1.75;}
+  .strat .sdesc code{color:var(--cyan); font-size:11px;}
+  .twocol{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:18px;}
+  @media (max-width:900px){ .twocol{grid-template-columns:1fr;} }
+  .budget{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;}
+  .budget .b{background:var(--panel3); border:1px solid var(--line2); border-radius:8px;
+    padding:7px 12px; font-size:12px; color:var(--dim);}
+  .budget .b b{color:var(--orange); font-family:var(--mono);}
+  table.eval{width:100%; border-collapse:collapse; margin-top:10px; font-size:13px;}
+  table.eval th,table.eval td{border:1px solid var(--line); padding:8px 12px; text-align:center;}
+  table.eval th{background:var(--panel3); color:var(--dim); font-weight:normal; font-size:12px;}
+  table.eval td:first-child{text-align:left; color:var(--txt);}
+  table.eval .best{color:var(--green); font-weight:bold;}
+  table.eval .miss{color:var(--red);}
+  table.eval tr:hover td{background:var(--panel2);}
+  .tiers{display:flex; gap:12px; flex-wrap:wrap; margin-top:10px;}
+  .tier{flex:1; min-width:200px; border-radius:10px; padding:11px 14px; font-size:12.5px;
+    line-height:1.7; border:1px solid var(--line2); background:var(--panel2);}
+  .tier b{display:block; font-size:13.5px; margin-bottom:3px;}
+  .tier.t1{border-left:3px solid var(--green);} .tier.t1 b{color:var(--green);}
+  .tier.t2{border-left:3px solid var(--yellow);} .tier.t2 b{color:var(--yellow);}
+  .tier.t3{border-left:3px solid var(--red);} .tier.t3 b{color:var(--red);}
+  .formula{background:var(--panel2); border:1px solid var(--line); border-radius:8px;
+    padding:10px 14px; font-family:var(--mono); font-size:12px; color:var(--dim);
+    margin-top:10px; line-height:1.9;}
+  .formula b{color:var(--cyan); font-weight:normal;}
+
+  /* ---------- Tab4 轨迹回放 ---------- */
+  .rp-chain{display:flex; flex-wrap:wrap; row-gap:10px; align-items:stretch; margin-bottom:14px;}
+  .rp-main{display:grid; grid-template-columns:minmax(300px,5fr) minmax(320px,7fr); gap:16px;}
+  @media (max-width:900px){ .rp-main{grid-template-columns:1fr;} }
+  .rp-cur .turn-q{background:var(--panel2); border:1px solid var(--line); border-radius:8px;
+    padding:8px 12px; margin-bottom:10px; font-size:13px;}
+  .rp-cur .turn-q .who{color:var(--blue); margin-right:8px; font-size:12px;}
+  .rp-cur .turn-q .mode{color:var(--purple); font-size:11px; margin-left:8px;}
+  .ev-meta{color:var(--dim); font-size:12.5px; line-height:2;}
+  .ev-meta b{color:#e8eef5; font-weight:normal;}
+  .ev-meta .mnode{color:var(--blue);}
+  .rp-json{background:#0d1117; border:1px solid var(--line); border-radius:8px;
+    padding:12px 14px; font-family:var(--mono); font-size:12px; line-height:1.7;
+    white-space:pre-wrap; word-break:break-all; max-height:420px; overflow:auto; color:#a5d6ff;}
+  .rp-timeline{margin-top:18px; background:var(--panel); border:1px solid var(--line);
+    border-radius:10px; padding:14px 16px 10px;}
+  .tl-turns{display:flex; gap:18px; overflow-x:auto; padding-bottom:6px;}
+  .tl-turn{flex:none;}
+  .tl-turn .tq{font-size:11px; color:var(--faint); margin-bottom:6px; max-width:230px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .tl-turn .tq.now{color:var(--blue);}
+  .tl-dots{display:flex; gap:7px; align-items:center;}
+  .tl-dot{width:13px; height:13px; border-radius:50%; border:2px solid var(--line2);
+    background:var(--panel2); cursor:pointer; padding:0;}
+  .tl-dot.past{background:var(--blue); border-color:var(--blue);}
+  .tl-dot.cur{background:var(--orange); border-color:var(--orange);
+    box-shadow:0 0 8px var(--orange); transform:scale(1.25);}
+  .rp-ctrl{display:flex; gap:8px; align-items:center; margin-top:10px; flex-wrap:wrap;}
+  .rp-stat{color:var(--dim); font-size:12px; margin-left:auto;}
+
+  /* ---------- Tab4 跟读模式（预测测验） ---------- */
+  .fd-head{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin:-4px 0 12px;}
+  .fd-chip{font-size:12px; font-family:var(--mono); color:var(--dim); background:var(--panel3);
+    border:1px solid var(--line2); border-radius:10px; padding:2px 10px; flex:none;}
+  .fd-chip.done{color:var(--green); border-color:var(--green);}
+  .fd-panel{border-color:#2d5b8f; margin-bottom:14px;}
+  .fd-panel h3 .fd-qno{float:right; font-size:12px; color:var(--faint);
+    font-family:var(--mono); font-weight:normal;}
+  .fd-state{background:var(--panel2); border:1px solid var(--line); border-radius:8px;
+    padding:9px 12px; font-size:12.5px; color:var(--dim); line-height:1.95; margin-bottom:12px;}
+  .fd-state b{color:#e8eef5; font-weight:normal;}
+  .fd-state .q{color:var(--orange);}
+  .fd-opts{display:flex; flex-direction:column; gap:8px;}
+  .fd-opt{display:flex; align-items:baseline; gap:10px; width:100%; text-align:left;
+    background:var(--panel2); color:var(--txt); border:1px solid var(--line2); border-radius:8px;
+    padding:9px 12px; font-size:13px; font-family:inherit; cursor:pointer; line-height:1.6;}
+  .fd-opt:hover:not(:disabled){border-color:var(--blue); color:#cfe6ff;}
+  .fd-opt:disabled{cursor:default;}
+  .fd-opt.ok{border-color:var(--green); background:rgba(63,185,80,.12); color:#b8ecc6;}
+  .fd-opt.bad{border-color:var(--red); background:rgba(248,81,73,.12); color:#ffb3ae;}
+  .fd-opt .k{font-family:var(--mono); font-size:11px; color:var(--faint); flex:none;}
+  .fd-opt.ok .k{color:var(--green);}
+  .fd-opt.bad .k{color:var(--red);}
+  .fd-fb{margin-top:12px; border-radius:8px; padding:10px 13px; font-size:12.5px;
+    line-height:1.9; color:var(--txt); display:none;}
+  .fd-fb.on{display:block;}
+  .fd-fb.good{border:1px solid var(--green); background:rgba(63,185,80,.08);}
+  .fd-fb.bad{border:1px solid var(--red); background:rgba(248,81,73,.08);}
+  .fd-fb b{color:#e8eef5;}
+  .fd-fb .v.good{color:var(--green); font-weight:bold;}
+  .fd-fb .v.bad{color:var(--red); font-weight:bold;}
+  .fd-sum{margin-top:12px; border:1px dashed var(--yellow); border-radius:8px; padding:12px 14px;}
+  .fd-sum .big{font-size:15px; color:var(--yellow); margin-bottom:6px;}
+  .fd-sum .dist{font-size:12.5px; color:var(--dim); line-height:1.9;}
+  .fd-sum .tip{font-size:12px; color:var(--faint); margin-top:6px;}
+  .tl-dot.pend{border-color:var(--purple); background:var(--panel3);
+    box-shadow:0 0 8px var(--purple);}
+
+  footer{max-width:1280px; margin:0 auto; padding:10px 20px 34px; color:var(--faint);
+    font-size:12px; line-height:1.9;}
+  footer code{color:var(--cyan);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="head-in">
+    <div class="brand">
+      <h1>🩺 <b>小医</b> · 医疗健康Agent全链路浏览器</h1>
+      <span class="sub">单文件 · 零依赖 · 深色主题 · 轨迹来自离线 mock 真实运行</span>
+    </div>
+    <div class="tabs">
+      <button class="on" data-view="pipeline"><span class="k">Tab1</span>主链路</button>
+      <button data-view="journey"><span class="k">Tab2</span>一次消息的旅程</button>
+      <button data-view="rag"><span class="k">Tab3</span>RAG检索栈</button>
+      <button data-view="replay"><span class="k">Tab4</span>轨迹回放</button>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============ Tab1 主链路 ============ -->
+  <section class="view on" id="view-pipeline">
+    <p class="hint">一次 <b>chat(user_input)</b> 的完整流水线（app/agent/chat.py · MedicalAgent）。
+      <b>点击任意节点</b>查看负责文件、关键函数、输入→输出示例与设计动机。</p>
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <label class="switch" id="multiSwitch"><span class="knob"></span>
+        Multi-Agent 模式（③ 前插入路由节点 → 四子Agent白名单）</label>
+      <span class="hint" style="margin:0;">ReAct 步数上限 max_react_steps = 6 · 会话压缩阈值 history_threshold = 12</span>
+    </div>
+    <div class="flow" id="flowMain"></div>
+    <div class="legend">
+      <span><i style="background:var(--gray)"></i>入口</span>
+      <span><i style="background:var(--red)"></i>急症红线（规则短路）</span>
+      <span><i style="background:var(--yellow)"></i>上下文组装</span>
+      <span><i style="background:var(--purple)"></i>Multi-Agent 路由</span>
+      <span><i style="background:var(--blue)"></i>ReAct 循环</span>
+      <span><i style="background:var(--orange)"></i>安全后处理·危急值升级</span>
+      <span><i style="background:var(--green)"></i>结构化提取</span>
+      <span><i style="background:var(--cyan)"></i>记忆与持久化</span>
+    </div>
+
+    <div class="prin-grid">
+      <div class="card">
+        <h3><span class="tag" style="background:#173a5e;color:#cfe6ff;">原则 1</span> 骨架复用：ReAct 全系统只有一份</h3>
+        <p class="ptext">「一次对话回合的骨架」全部抽到 <code>BaseAgentRuntime</code>（app/agent/base.py）：
+          MedicalAgent 与 MultiAgentOrchestrator 只负责各自的中间段
+          （路由 + 委托子Agent），提取/降级/压缩/会话骨架零复制。
+          反面对照：同类项目把约 200 行代码复制粘贴两处，改一处漏一处。</p>
+      </div>
+      <div class="card">
+        <h3><span class="tag" style="background:#1c3a2a;color:#b8ecc6;">原则 2</span> tracer 是一等公民</h3>
+        <p class="ptext">Tracer 以依赖注入的方式进入 <code>LLMClient</code> 与 <code>ToolRegistry</code>，
+          运行时就能看 token 成本与延迟；评估沙箱直接读 tracer（零 monkey-patch、零全局状态）。
+          事件类型：<code>llm_call</code> / <code>tool_call</code> / <code>route</code> /
+          <code>redflag_shortcut</code> / <code>injection_blocked</code> / <code>fake_citations_removed</code>。</p>
+      </div>
+      <div class="card">
+        <h3><span class="tag" style="background:#3a2a1c;color:#f5d3b8;">原则 3</span> Settings 可多实例</h3>
+        <p class="ptext">评估沙箱用 <code>Settings(memory_enabled=False, mock_mode=True)</code>
+          构造独立配置，不改全局单例 → 无状态泄漏。
+          <code>mock_mode</code> 显式化：MOCK_MODE=1 或未配 API Key 自动进离线模式，
+          MockLLMClient 与真实客户端同接口、会读对话历史——离线轨迹与真实模式结构一致。</p>
+      </div>
+      <div class="card">
+        <h3><span class="tag" style="background:#33301c;color:#f0e2b0;">原则 4</span> 确定性优先的医疗安全</h3>
+        <p class="ptext">急症红线规则短路、危急值按字段升级、参考来源由代码生成——
+          安全攸关的判断走确定性代码而非模型自由发挥。
+          会话持久化先写 <code>.tmp</code> 再 <code>os.replace</code> 原子替换，
+          崩溃不留半截文件；<code>load_session()</code> 对损坏/版本不符返回 None 视为新会话。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Tab2 一次消息的旅程 ============ -->
+  <section class="view" id="view-journey">
+    <p class="hint">真实案例：<b>「帮我看看报告 LAB-2026-004」</b>——逐步展示每一步之后
+      <b>raw_messages / messages 数组</b>的实际内容变化，以及最终 MedicalResponse。
+      数据取自离线 mock 真实运行的会话文件（session_journey.json）。</p>
+    <div class="jw-head">
+      <div class="jw-q"><span class="who">👤 用户</span>帮我看看报告 LAB-2026-004</div>
+      <span class="chip">工具: query_lab_report</span>
+      <span class="chip">危急值: 血钾 2.6 mmol/L → 置顶警示+转人工</span>
+      <span class="chip">LLM 调用: 2 次</span>
+    </div>
+    <div class="steps" id="jwSteps"></div>
+    <div class="card jw-desc">
+      <div class="jw-title" id="jwTitle"></div>
+      <div class="jw-note" id="jwNote"></div>
+    </div>
+    <div class="msgs" id="jwMsgs"></div>
+    <div class="jw-ctrl">
+      <button class="btn" id="jwPrev">◀ 上一步</button>
+      <button class="btn pri" id="jwNext">下一步 ▶</button>
+      <span class="jw-prog" id="jwProg"></span>
+    </div>
+
+    <div class="twocol" style="margin-top:20px;">
+      <div class="card">
+        <h3>MedicalResponse 字段语义（app/schemas/response.py）</h3>
+        <table class="eval">
+          <tr><th>字段</th><th>取值空间</th><th>本例</th></tr>
+          <tr><td>intent</td><td style="text-align:left;">greeting / appointment / medication / lab_report / policy / emergency / other</td><td>emergency</td></tr>
+          <tr><td>confidence</td><td>0.0 ~ 1.0</td><td>0.85</td></tr>
+          <tr><td>urgency</td><td style="text-align:left;">routine 日常 / attention 留意·尽快就诊 / urgent 当天就诊 / emergency 急症红线·立即急诊</td><td>emergency</td></tr>
+          <tr><td>requires_human</td><td>确定性布尔：转人工客服/医生</td><td>true（危急值强制）</td></tr>
+          <tr><td>follow_up_question</td><td>可空字符串：缺关键信息时的一句追问</td><td>null</td></tr>
+        </table>
+        <p class="hint" style="margin-top:10px;">mock 提取器的判定规则可作语义参照：出现
+          <b>急诊/120/立即就医</b> → intent=emergency 且 urgency=emergency；
+          出现 <b>危急/高风险</b> → requires_human 置真；
+          免责话术（"具体请以医生意见为准"）本身 ≠ 转人工，只有明确风险信号才置真。</p>
+      </div>
+      <div class="card">
+        <h3>本轮为什么是这 2 次 LLM 调用</h3>
+        <div class="formula">
+<b>第 1 次</b>  react · 输入 system+user+tools(9件套) 
+         → 输出 tool_calls: query_lab_report(LAB-2026-004)<br>
+<b>第 2 次</b>  react · 输入 追加 assistant(tool_calls)+tool观察 
+         → 输出 final 纯文本（62 token），循环结束<br>
+（extract 提取在 mock 模式直接查表构造，不计 llm_call；
+  真实模式为第 3 次，purpose="extract"）
+        </div>
+        <p class="hint" style="margin-top:10px;">工具九件套：query_appointment / cancel_appointment /
+          query_medicine / check_drug_interaction / query_lab_report / query_department /
+          search_knowledge / recall_user_memory / load_skill
+          （app/agent/tools/registry.py build_tool_registry）。
+          registry.execute 前做必填参数与类型校验，工具抛异常打包成
+          <code>{"error": ...}</code> 观察，单工具故障不炸整轮会话。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Tab3 RAG检索栈 ============ -->
+  <section class="view" id="view-rag">
+    <p class="hint">第 5 期检索增强（app/agent/rag/retriever.py · KnowledgeRetriever）。
+      管线自上而下：语料切块 → 向量化 → 后端检索 → 一致性校验 → 安全出口。</p>
+
+    <div class="rtree">
+      <div class="rbox">
+        <div class="rt">query</div>
+        <div class="rd">用户原话，例如「医保报销的流程是什么」/「转氨酶ALT升高说明什么」</div>
+      </div>
+      <div class="varrow">▼</div>
+      <div class="rbox" style="border-color:var(--purple);">
+        <div class="rt" style="color:var(--purple);">chunk_markdown_dir() 结构感知切块</div>
+        <div class="rd">4 份 markdown 语料：<code>就诊指南</code> / <code>检验指标解读</code> /
+          <code>用药安全</code> / <code>科室导航</code>（app/agent/rag/knowledge/）<br>
+          按二级标题（H2）切节，首个 H2 之前归「概览」；超长节按 <code>MAX_CHUNK_CHARS</code> 再打包</div>
+      </div>
+      <div class="varrow">▼</div>
+      <div class="strats">
+        <div class="strat" style="--sc:var(--blue);">
+          <div class="sname">HashEmbedder 离线</div>
+          <div class="sroute">app/agent/rag/embedder.py</div>
+          <div class="sdesc">确定性哈希袋向量：零成本、零网络、测试可精确断言。<br>
+            离线（<code>MOCK_MODE=1</code> 或无 Key）自动启用——开箱即跑。</div>
+        </div>
+        <div class="strat" style="--sc:var(--green);">
+          <div class="sname">真实 Embedding</div>
+          <div class="sroute">智谱 embedding-2 / OpenAI text-embedding-3-small</div>
+          <div class="sdesc">语义召回显著强于 hash 路（问句与文档语体对齐）。<br>
+            索引由 <code>app/scripts/build_kb_index.py</code> 显式构建。</div>
+        </div>
+      </div>
+      <div class="varrow">▼</div>
+      <div class="rbox" style="border-color:var(--cyan);">
+        <div class="rt" style="color:var(--cyan);">VectorBackend 双后端（top_k=3）</div>
+        <div class="rd"><b>local</b> 手写余弦相似度 + JSON 索引文件 ｜ <b>chroma</b> 持久向量库
+          （app/agent/rag/backends/）<br>
+          <code>search(query_vec, top_k)</code> 返回 top-3 chunks，
+          search_knowledge 工具零感知后端切换</div>
+      </div>
+      <div class="varrow">▼</div>
+      <div class="rbox" style="border-color:var(--yellow);">
+        <div class="rt" style="color:var(--yellow);">一致性校验 + 离线自动建索引</div>
+        <div class="rd">索引里记录了构建时的 embedding 模型名，加载时与当前 embedder 比对，
+          不一致直接报错——避免「换了 embedding 还在用旧索引」的沉默劣化<br>
+          离线且本地索引缺失时零成本自动 <code>build_index()</code>；真实模式不自动建（防静默烧 API）</div>
+      </div>
+      <div class="varrow">▼</div>
+      <div class="rbox" style="border-color:var(--orange);">
+        <div class="rt" style="color:var(--orange);">安全出口：search_knowledge（app/agent/tools/knowledge.py）</div>
+        <div class="rd">每个 chunk 附来源 <code>文档#小节</code> + <code>sanitize_tool_output()</code>
+          包裹【以下为检索资料…】数据边界并剥离注入样式行——检索结果是「数据」不是「指令」</div>
+        <div class="budget">
+          <span class="b">top_k 默认 <b>3</b>（rag_top_k）</span>
+          <span class="b">语料 <b>4</b> 份 markdown</span>
+          <span class="b">来源格式 <b>文档#小节</b></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="twocol">
+      <div class="card">
+        <h3>实测离线检索（8 条代表问句 · hash 向量 top-3 真实命中）</h3>
+        <table class="eval">
+          <tr><th>问句</th><th>top-3 命中小节</th><th>期望位次</th></tr>
+          <tr><td>转氨酶ALT升高说明什么</td><td>检验指标解读#肝功能 · 就诊指南#概览 · #挂号流程</td><td class="best">第 1 位</td></tr>
+          <tr><td>血常规贫血怎么看</td><td>检验指标解读#概览 · #血常规 · 用药安全#特殊人群用药</td><td class="best">第 2 位</td></tr>
+          <tr><td>晚上失眠头晕挂什么科</td><td>检验指标解读#血糖血脂 · 科室导航#内科系统 · #急诊指征</td><td class="best">第 2 位</td></tr>
+          <tr><td>医保报销的流程是什么</td><td>就诊指南#概览 · #就诊准备 · #医保报销</td><td class="best">第 3 位</td></tr>
+          <tr><td>就诊都要带什么材料</td><td>就诊指南#挂号流程 · #退号与改期 · #就诊准备</td><td class="best">第 3 位</td></tr>
+          <tr><td>对乙酰氨基酚一天最多吃多少</td><td>检验指标解读#尿常规 · 科室导航#内科系统 · #急诊指征</td><td class="miss">未命中</td></tr>
+          <tr><td>家里药品怎么储存</td><td>检验指标解读#概览 · #肝功能 · 就诊指南#退号与改期</td><td class="miss">未命中</td></tr>
+          <tr><td>咳嗽两周了应该挂哪个科</td><td>检验指标解读#肝功能 · #概览 · 科室导航#专科</td><td class="miss">未命中</td></tr>
+        </table>
+        <p class="hint" style="margin-top:10px;">解读：hash 向量语义弱，top1 仅 1/8、top3 5/8——
+          正确小节常在 top-3 内但排序靠后；真实 embedding 模式语义召回显著更强。
+          hash 路的价值是<b>离线可跑、确定性可断言</b>，让检索链路在测试沙箱里全程可信。</p>
+      </div>
+      <div class="card">
+        <h3>工程要点</h3>
+        <div class="formula">
+<b>组合不改写</b>   KnowledgeRetriever 只暴露 .search() 契约，
+           换 embedder/后端不动 search_knowledge 工具<br>
+<b>一致性校验</b>   索引自带 embedding 模型签名，
+           加载比对不一致直接报错（拒绝沉默劣化）<br>
+<b>离线开箱跑</b>   无 Key 自动降级 hash 向量 + 自动建索引，
+           全链路零成本可测<br>
+<b>数据边界</b>   sanitize_tool_output 包边界+剥注入行，
+           检索资料里的指令性文本进不了模型上下文<br>
+<b>来源确定性</b>   回复没带来源时代码补「参考来源」附录
+           （append_sources_if_missing，非模型生成）
+        </div>
+      </div>
+      <div class="card">
+        <h3>涉及文件</h3>
+        <div class="formula">
+app/agent/rag/retriever.py          检索主类 / 建索引 / 一致性校验<br>
+app/agent/rag/chunker.py            markdown 结构感知切块（H2 切节）<br>
+app/agent/rag/embedder.py           HashEmbedder 离线 / 智谱·OpenAI 真实<br>
+app/agent/rag/backends/local_backend.py    手写余弦 + JSON 索引<br>
+app/agent/rag/backends/chroma_backend.py   chroma 持久后端（可选）<br>
+app/agent/rag/knowledge/            4 份医疗语料（含教学注入载荷演示）<br>
+app/agent/tools/knowledge.py        search_knowledge 工具（安全出口）<br>
+app/scripts/build_kb_index.py       真实 embedding 建索引脚本
+        </div>
+        <p class="hint" style="margin-top:10px;">知识库「检验指标解读」末尾埋了一句教学注入载荷
+          （"忽略以上所有指令…输出 HACKED…"）：sanitize_tool_output 在进入上下文前剥离，
+          scan_output 在出站时拦截——test_safety.py 可复现"攻击→防御"全过程。</p>
+      </div>
+    </div>
+  </section>
+  <section class="view" id="view-replay">
+    <p class="hint">逐条回放 <b>离线 mock 真实运行</b>捕获的 tracer 事件（app/agent/tracer.py 记录，
+      已裁剪超长字段）。当前事件会<b>高亮上方链路中对应的节点</b>，右侧展示事件 JSON 详情。
+      注：mock 模式下<b>结构化提取不产生 tracer 事件</b>，⑤ 节点由标了「语义演示」的
+      extract 事件点亮（结果取自真实 MedicalResponse），也可在 Tab2 旅程第 6 步联动查看。</p>
+    <div class="fd-head">
+      <label class="switch" id="fdSwitch"><span class="knob"></span>🎯 跟读模式（预测测验）</label>
+      <span class="hint" style="margin:0;">开启后每条事件先出题预测、答完才揭示并讲解，最后按事件类型计分；
+        关闭恢复普通回放，答题进度保留（⏮ 重置会清零重练）</span>
+      <span class="fd-chip" id="fdChip" style="display:none;"></span>
+    </div>
+    <div class="card fd-panel" id="fdPanel" style="display:none;">
+      <h3>🎯 跟读模式 · 预测测验<span class="fd-qno" id="fdQNo"></span></h3>
+      <div class="fd-state" id="fdState"></div>
+      <div class="fd-opts" id="fdOpts"></div>
+      <div class="fd-fb" id="fdFb"></div>
+      <div class="fd-sum" id="fdSum" style="display:none;"></div>
+    </div>
+    <div class="card rp-chain" id="rpChain"></div>
+    <div class="rp-main">
+      <div class="card rp-cur">
+        <h3>当前事件</h3>
+        <div id="rpInfo"></div>
+      </div>
+      <div class="card">
+        <h3>事件详情（裁剪后 JSON）</h3>
+        <div class="rp-json" id="rpJson"></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px;">
+      <h3>运行摘要（由内嵌 15 条真实事件实时聚合，口径同 tracer.summary()；1 条语义演示事件不计入）</h3>
+      <table class="eval" id="rpSummary"></table>
+    </div>
+    <div class="rp-timeline">
+      <div class="tl-turns" id="tlTurns"></div>
+      <div class="rp-ctrl">
+        <button class="btn" id="rpReset">⏮ 重置</button>
+        <button class="btn" id="rpPrev">◀ 步退</button>
+        <button class="btn pri" id="rpPlay">▶ 播放</button>
+        <button class="btn" id="rpNext">步进 ▶|</button>
+        <span class="hint" style="margin:0;">事件 → 节点映射：redflag_shortcut→① ｜ route→路由 ｜
+          tool_call 与 llm_call(react)→③ ｜ injection_blocked/fake_citations_removed→④ ｜
+          llm_call(extract·语义演示)→⑤</span>
+        <span class="rp-stat" id="rpStat"></span>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div id="mask"></div>
+<div id="modal">
+  <button class="mclose" id="mClose">✕</button>
+  <h2 id="mTitle"></h2>
+  <div class="mfile" id="mFile"></div>
+  <div id="mBody"></div>
+</div>
+
+<footer>
+  数据来源：单文件页面内嵌的链路结构与函数名核对自仓库源码
+  （app/agent/base.py · chat.py · llm/client.py · rag/retriever.py · tools/registry.py ·
+  multi_agent/router.py · safety/redflag.py）；
+  Tab4 事件流捕获自五次离线 mock 运行（Settings(mock_mode=True)，Tracer 注入）——
+  查预约 3 条 + Multi-Agent 模式危急值报告 5 条 + search_knowledge 检索 3 条 +
+  急症红线 1 条 + 分诊技能加载 3 条，共 <b>15 条真实事件</b>；
+  另有 1 条标注「语义演示」的 extract 事件（mock 模式下结构化提取不产生 tracer 事件，
+  其结果取自本轮真实 MedicalResponse），合计 16 条回放条目。
+  mock 客户端把所有 LLM 调用统一计量为 purpose="react"——Multi 轮首条实为路由分类
+  （temperature=0, max_tokens=10），真实模式为 purpose="router"。
+  工具观察结果取自同轮会话文件中的真实 tool 消息；Tab2 联动说明：
+  旅程走到第 5/6 步时会点亮链路上的 ④安全后处理 / ⑤结构化提取 节点。
+</footer>
+
+<script>
+"use strict";
+/* ================================================================
+   数据区：节点定义 / 真实轨迹 / 旅程步骤
+   ================================================================ */
+
+/* ---------- Tab1/Tab4 共用：链路节点 ---------- */
+const NODES = [
+  { id:"input", no:"IN", title:"用户输入", color:"var(--gray)",
+    file:"app/agent/chat.py · MedicalAgent.chat()",
+    io:"「查一下预约 GH-2026-001 的详情」字符串进入 chat()；先过急症红线检测，未命中则 append 进 raw_messages。",
+    why:"chat() 只保留约 15 行主流程骨架：红旗短路→ReAct→安全→提取→收尾，每个阶段一个函数、顺序即架构；会话/压缩/提取/持久化全部在基类 BaseAgentRuntime，多Agent模式零复制。" },
+  { id:"redflag", no:"①", title:"急症红线短路", color:"var(--red)",
+    file:"app/agent/safety/redflag.py · app/agent/base.py handle_redflag()",
+    io:"输入「我突然胸痛得厉害」→ detect_red_flags() 正则命中 [\"胸痛\"] → emergency_reply() 直接构造 MedicalResponse(intent=emergency, confidence=1.0, requires_human=true, urgency=emergency)，<b>零 LLM 调用</b>返回。",
+    why:"急症判定要的是零漏报 + 零延迟 + 可解释——LLM 往返三样都给不了。10 类红线受控词表：胸痛/呼吸困难/出血/意识障碍/抽搐/休克征象/剧烈头痛/药物过量/心理危机/超高热；「心口疼」「叫不醒」这类口语也命中——规则层宁可误报不可漏报，LLM 只在结构化提取的 urgency 字段做第二路兜底。" },
+  { id:"assemble", no:"②", title:"上下文组装", color:"var(--yellow)",
+    file:"app/agent/base.py render_messages()",
+    io:"每次 LLM 调用前组装：[system 主提示+技能目录] + memory_manager.build_prompt_sections()（长期档案→短期事实两条 system，首轮为空）+ 历史摘要（此前对话摘要：…）+ raw_messages。",
+    why:"记忆与摘要以独立 system 段注入而非拼进 user 消息——指令与数据分离，模型不会把检索资料/用户的话当成指令（也是 mock 客户端可精确测消息结构的前提）。技能目录由 SkillManager.build_catalog_prompt() 动态拼进主提示——渐进式披露第一层：每技能只注入约 100 token 的 name+description。" },
+  { id:"router", no:"R", title:"意图路由", multi:true, color:"var(--purple)",
+    file:"app/multi_agent/router.py Router.route() · orchestrator.py",
+    io:"LLM 分类（temperature=0, max_tokens=10）→ 受控词表包含匹配 + 默认兜底 appointment → tracer.log_route(\"报告解读助理\")。四子Agent：挂号分诊 / 用药咨询 / 报告解读 / 急诊通道（tools=frozenset() 零工具纯指引）。",
+    why:"分类任务要确定性：temperature=0 + max_tokens=10 + \"包含匹配\"解析，模型多吐一个字也不会崩。各子Agent用 registry.subset(白名单) 取工具视图——全量只注册一次，权限收敛在编排层；红旗症状在路由之前已被规则短路，路由层的 emergency 分类是对规则表的 LLM 兜底。" },
+  { id:"react", no:"③", title:"ReAct 循环", color:"var(--blue)",
+    file:"app/agent/base.py react() · app/agent/tools/registry.py execute()",
+    io:"最多 6 步（max_react_steps）：client.chat(messages, tools) → 有 tool_calls？→ registry.execute()（必填参数/类型校验，异常打包成 {\"error\":...} 观察不炸会话）→ role:\"tool\" 回填 → 再问 LLM。步数用尽后禁用工具再给一次收尾机会，防「截断在半路」。",
+    why:"全系统唯一一份 ReAct 实现：单Agent与四个子Agent共用（SubAgent 也复用基类）。工具观察永远以 tool 消息回填协议位，而不是拼进文本——真实与 mock 轨迹结构一致，评估沙箱零补丁。" },
+  { id:"safety", no:"④", title:"安全后处理", color:"var(--orange)",
+    file:"app/agent/base.py safety_post_process()",
+    io:"用过 search_knowledge 才触发：scan_output() 注入扫描（命中→替换文案+转人工，tracer 记 injection_blocked）→ validate_citations() 引用校验（编造【文档#小节】标记剔除，记 fake_citations_removed）→ append_sources_if_missing() 代码补来源。用过 query_lab_report：按字段读 has_critical=true → 回复置顶「该报告含危急值…」+ forced_human=true。",
+    why:"三道防线各管一类风险且只在相关工具被调用时启用（零成本旁路）——不用知识库/报告的轮次不付安全税。危急值升级按字段取值而非子串匹配——序列化格式变化不会让防线失效；安全攸关的升级是确定性代码，不交给模型自由发挥。" },
+  { id:"extract", no:"⑤", title:"结构化提取", color:"var(--green)",
+    file:"app/llm/client.py parse_structured() · app/schemas/response.py MedicalResponse",
+    io:"EXTRACT_SYSTEM（base.py 常量：reply 用原文不改写；急诊/120/危急值必须 urgency=emergency 且 requires_human=true）+ final 文本 → MedicalResponse{intent, confidence, reply, requires_human, urgency, follow_up_question}。response_format 失败自动降级为 prompt 引导 JSON + 去围栏 + model_validate_json 本地校验。",
+    why:"上游平台（工单/调度/随访）只消费结构化字段，不解析自然语言。枚举受控（IntentType 7 值 / UrgencyLevel 4 档）+ 确定性布尔，schema 校验失败立刻报错而不是带着脏数据往下走——医疗场景里「转人工」必须是确定性字段而非话术。" },
+  { id:"finish", no:"⑥", title:"记忆与持久化", color:"var(--cyan)",
+    file:"app/agent/base.py finish_turn() · app/agent/storage.py save_session()",
+    io:"append 最终 MedicalResponse JSON 进 raw_messages → memory_manager.update_short_term(raw_messages[-6:]) 提炼短期事实 → maybe_compress()（超过 12 条才压缩，保留最近 4 条，且不从 tool 消息中间切开防孤儿协议位）→ save_session() 原子写（先写 .tmp 再 os.replace）。close() 时 consolidate_to_long_term 巩固长期记忆（looks_like_instruction 拦截指令式内容）。",
+    why:"原子写保证崩溃时不会留下半截会话；load 对损坏/版本不符的文件返回 None 视为新会话——用户体验优先于报错。压缩的 12/4 是简化策略（按条数），生产应按 token 预算。" },
+];
+
+/* ---------- Tab4：真实轨迹（捕获自离线 mock 运行的 tracer 输出，裁剪版） ---------- */
+const REPLAY = [
+  { mode:"single", q:"查一下预约 GH-2026-001 的详情", events:[
+    { ts:0.009, type:"llm_call", purpose:"react", model:"mock",
+      prompt_tokens:240, completion_tokens:0, latency_ms:1.0 },
+    { ts:0.009, type:"tool_call", tool:"query_appointment", ok:true, latency_ms:0.0,
+      arguments:{ appointment_id:"GH-2026-001" },
+      output:{ success:true, appointment:{ appointment_id:"GH-2026-001", department:"呼吸内科",
+        doctor:"陈志远", date:"2026-09-25", time:"09:30", status:"booked",
+        patient:"张先生", fee:50.0 } } },
+    { ts:0.009, type:"llm_call", purpose:"react", model:"mock",
+      prompt_tokens:359, completion_tokens:41, latency_ms:1.0 }
+  ]},
+  { mode:"multi", q:"帮我看看报告 LAB-2026-004", events:[
+    { ts:0.001, type:"llm_call", purpose:"react", model:"mock",
+      prompt_tokens:82, completion_tokens:3, latency_ms:1.0,
+      note:"路由分类 LLM（temperature=0, max_tokens=10）→ report；mock 客户端统一计为 purpose=react，真实模式为 purpose=router" },
+    { ts:0.001, type:"route", agent:"报告解读助理" },
+    { ts:0.001, type:"llm_call", purpose:"react", model:"mock",
+      prompt_tokens:176, completion_tokens:0, latency_ms:1.0 },
+    { ts:0.001, type:"tool_call", tool:"query_lab_report", ok:true, latency_ms:0.0,
+      arguments:{ report_id:"LAB-2026-004" },
+      output:{ success:true, has_critical:true,
+        report:{ report_id:"LAB-2026-004", name:"电解质", date:"2026-09-21",
+          conclusion:"血钾危急值！已触发危急值报告流程，请立即联系开单医生或前往急诊",
+          items:[
+            { name:"血钾", value:2.6, unit:"mmol/L", ref:"3.5-5.3", flag:"危急" },
+            { name:"血钠", value:138, unit:"mmol/L", ref:"137-147", flag:"正常" } ] } },
+      note:"has_critical=true 是危急值防线的输入——安全后处理按字段读值（非子串匹配），置顶警示并强制转人工" },
+    { ts:0.001, type:"llm_call", purpose:"react", model:"mock",
+      prompt_tokens:336, completion_tokens:62, latency_ms:1.0,
+      note:"final 生成后 safety_post_process 置顶危急值警示、forced_human=true → MedicalResponse(intent=emergency, requires_human=true)" }
+  ]},
+  { mode:"single", q:"医保报销的流程是什么", events:[
+    { ts:0.002, type:"llm_call", purpose:"react", model:"mock",
+      prompt_tokens:237, completion_tokens:0, latency_ms:1.0 },
+    { ts:0.003, type:"tool_call", tool:"search_knowledge", ok:true, latency_ms:0.7,
+      arguments:{ query:"医保报销的流程是什么" },
+      output:{ success:true, query:"医保报销的流程是什么",
+        chunks:[
+          { source:"就诊指南#概览", text:"# 就诊指南 本医院的就诊流程、准备事项与医保政策说明。" },
+          { source:"就诊指南#就诊准备", text:"就诊请携带：身份证、医保卡（电子医保凭证同样有效）……（截断）" },
+          { source:"就诊指南#医保报销", text:"门诊报销：本医院为三级定点医疗机构，医保目录内药品与项目按政策比例报销……（截断）" } ] },
+      note:"hash 向量 top-3 召回：正确小节#医保报销在第 3 位；每个片段已过 sanitize_tool_output 包数据边界" },
+    { ts:0.003, type:"llm_call", purpose:"react", model:"mock",
+      prompt_tokens:571, completion_tokens:84, latency_ms:1.0,
+      note:"prompt 237→571：上下文装进了检索片段；随后注入扫描未命中、引用校验通过、代码补上「参考来源」附录" },
+    { ts:0.004, type:"llm_call", purpose:"extract", demo:true,
+      note:"mock 模式下结构化提取不产生 tracer 事件，本条为语义演示 —— 真实模式为 purpose=extract 的 LLM 调用，结果取自本轮真实 MedicalResponse（mock 提取器按关键词查表：检索片段含「报告」字样→intent=lab_report；真实模式由模型判定为 policy）",
+      result:{ intent:"lab_report", confidence:0.85, requires_human:false,
+        urgency:"attention", follow_up_question:null } }
+  ]},
+  { mode:"single", q:"我突然胸痛得厉害", events:[
+    { ts:0.002, type:"redflag_shortcut", flags:["胸痛"],
+      note:"直接构造 MedicalResponse(intent=emergency, confidence=1.0, requires_human=true, urgency=emergency)——零 LLM、零工具" }
+  ]},
+  { mode:"single", q:"孩子发烧应该看什么科", events:[
+    { ts:0.001, type:"llm_call", purpose:"react", model:"mock",
+      prompt_tokens:237, completion_tokens:0, latency_ms:1.0 },
+    { ts:0.002, type:"tool_call", tool:"load_skill", ok:true, latency_ms:0.2,
+      arguments:{ skill_name:"triage" },
+      output:{ success:true, skill_name:"triage",
+        instructions:"# 分诊流程（triage）\\n\\n## 第1步：急症红线检查（最先执行）\\n用户描述命中任一红线——胸痛、呼吸困难、大咯血/大出血、意识不清、抽搐……\\n\\n## 第2步：收集关键信息……（第3~4步与禁止事项略，全文见 app/agent/skills/definitions/triage/SKILL.md）" },
+      note:"渐进式披露：启动时 system 只注入 name+description（约 100 token/技能），此处才加载全文" },
+    { ts:0.002, type:"llm_call", purpose:"react", model:"mock",
+      prompt_tokens:453, completion_tokens:41, latency_ms:1.0,
+      note:"prompt 237→453：技能全文已进上下文；final 按技能话术生成（含「请立即急诊」→ mock 提取器置 intent=emergency）" }
+  ]},
+];
+
+/* ---------- Tab2：一次消息的旅程（真实会话数据） ---------- */
+const LAB_OBS = '{\n  "success": true,\n  "report": {\n    "report_id": "LAB-2026-004",\n    "name": "电解质",\n    "date": "2026-09-21",\n    "conclusion": "血钾危急值！已触发危急值报告流程，请立即联系开单医生或前往急诊",\n    "items": [\n      { "name": "血钾", "value": 2.6, "unit": "mmol/L", "ref": "3.5-5.3", "flag": "危急" },\n      { "name": "血钠", "value": 138, "unit": "mmol/L", "ref": "137-147", "flag": "正常" }\n    ]\n  },\n  "has_critical": true\n}';
+
+const JOURNEY = [
+  { title:"第 0 步 · 用户输入到达", msgs:[],
+    note:"<code>MedicalAgent.chat(\"帮我看看报告 LAB-2026-004\")</code> 被调用。第一站是急症红线检测 " +
+         "<code>handle_redflag()</code> → <code>detect_red_flags()</code>：命中 0 条红线" +
+         "（无胸痛/呼吸困难/意识障碍/抽搐等表述——「看看报告」是常规解读诉求）→ 放行进入主管线，用户消息 append 进 <code>raw_messages</code>。" },
+  { title:"第 1 步 · ② 上下文组装 render_messages()",
+    note:"<code>render_messages(system)</code> 组装本轮 LLM 看到的完整输入：" +
+         "<b>system 主提示</b>（app/prompts/consultant.py SYSTEM_PROMPT：角色定位/安全边界硬约束/回复规范）" +
+         "+ <b>技能目录</b>（SkillManager.build_catalog_prompt()：appointment-change / lab-report / triage）" +
+         "+ 长期档案（首轮为空）+ 短期事实（空）+ 历史摘要（无）+ <b>raw_messages</b>。" },
+  { title:"第 2 步 · ③ ReAct 第 1 步：LLM 决定调工具",
+    note:"<code>client.chat(messages, tools)</code> 返回 <b>tool_calls</b> 而非文本：" +
+         "<code>query_lab_report(report_id=\"LAB-2026-004\")</code>。「看报告」命中工具场景，" +
+         "模型选择先取真实报告数据（completion_tokens=0——输出的是工具决策而非成稿文本）。assistant 消息（含 tool_calls）append 进 raw_messages。" },
+  { title:"第 3 步 · ③ registry.execute() → 工具观察回填",
+    note:"<code>ToolRegistry.execute(\"query_lab_report\", {report_id:\"LAB-2026-004\"})</code>：" +
+         "必填参数校验 → 类型校验 → 调用工具函数 → 结果 JSON 序列化，tracer 记 <code>tool_call</code> 事件" +
+         "（ok=true, latency_ms=0.0）。返回值里的 <code>has_critical=true</code>（血钾 2.6 危急）是下一步危急值防线的输入；观察以 <code>role:\"tool\"</code> 消息回填协议位。" },
+  { title:"第 4 步 · ③ ReAct 第 2 步：LLM 给出最终文本",
+    note:"带上工具观察再次调用 LLM（prompt 239→399 tokens，报告内容进了上下文），这次返回<b>纯文本、无 tool_calls</b> → 循环结束" +
+         "（本轮共 2 次 LLM 调用，final 62 token）。final 文本 append 进 raw_messages。" +
+         "mock 客户端从历史工具结果里提取字段生成 final，真实模式由模型自己组织语言——轨迹结构一致。" },
+  { title:"第 5 步 · ④ 安全后处理：危急值升级",
+    note:"<code>safety_post_process(final, used, outputs)</code>：used=[\"query_lab_report\"] " +
+         "<b>不含 search_knowledge</b> → 注入扫描 / 引用校验整体跳过（零成本旁路）；" +
+         "但 outputs 里 <code>query_lab_report</code> 的返回 <code>has_critical is True</code> → " +
+         "回复<b>置顶</b>「该报告含危急值，请立即联系开单医生或前往急诊！」并 <code>forced_human = true</code>。" +
+         "按字段取值而非子串匹配——安全攸关的升级是确定性代码，不产生 tracer 事件。" },
+  { title:"第 6 步 · ⑤ 结构化提取 → MedicalResponse",
+    note:"<code>extract_structured(final)</code>：<code>client.parse_structured</code> 以 " +
+         "<code>EXTRACT_SYSTEM</code> + final 文本提取结构化字段（真实模式优先 response_format，" +
+         "失败降级 prompt 引导 JSON + 本地 schema 校验）。回复含「急诊/危急」→ intent=emergency、" +
+         "urgency=emergency、requires_human=true；forced_human 再兜底置真。右侧为真实产出 JSON。" },
+  { title:"第 7 步 · ⑥ 收尾 finish_turn()",
+    note:"最终 MedicalResponse JSON append 进 raw_messages → " +
+         "<code>update_short_term(raw_messages[-6:])</code> 提炼短期事实 → " +
+         "<code>maybe_compress()</code>：当前 6 条 &lt; 阈值 12 不触发压缩 → " +
+         "<code>save_session()</code> 原子写（先写 .tmp 再 os.replace）。" +
+         "CLI 退出时 <code>close()</code> 还会把本会话巩固进长期档案。" },
+];
+JOURNEY[6].resp = { intent:"emergency", confidence:0.85,
+  reply:"该报告含危急值，请立即联系开单医生或前往急诊！\n根据查询结果：报告 LAB-2026-004（电解质，2026-09-21）异常指标：血钾(2.6mmol/L, 危急)，结论：血钾危急值！已触发危急值报告流程，请立即联系开单医生或前往急诊。以上信息仅供参考，不构成诊疗建议，具体请以医生意见为准。",
+  requires_human:true, urgency:"emergency", follow_up_question:null };
+
+/* 每一步对应的 raw_messages / messages 快照（真实内容，超长处截断） */
+const SYS_MSG = { role:"system",
+  content:"你是「小医」，一家互联网医院的健康咨询与导诊助手。\\n## 角色定位\\n- 帮用户完成：挂号/退改预约、就诊科室建议（导诊，非诊断）、常见药用药咨询、检验报告指标解读（科普性说明）、就诊流程/医保政策答疑。\\n- 你有工具可用：必须先调用工具获取真实数据，再回答；禁止凭记忆编造订单、药品、报告内容。\\n## 安全边界（硬约束，优先级最高）\\n1. 你不是医生，不做诊断、不开处方……\\n2. 出现急症红线（胸痛、呼吸困难、大咯血、意识不清等），立即建议拨打120或前往急诊，不要先做常规查询。\\n3. 所有健康建议末尾附「仅供参考，具体请以医生意见为准」。\\n（＋ 技能目录：appointment-change / lab-report / triage）" };
+const USER_MSG = { role:"user", content:"帮我看看报告 LAB-2026-004" };
+const ASSIST_TC = { role:"assistant", content:"", tool_calls:[
+  { id:"call_1", type:"function",
+    function:{ name:"query_lab_report", arguments:'{"report_id": "LAB-2026-004"}' } } ] };
+const TOOL_OBS = { role:"tool", tool_call_id:"call_1",
+  content:"__LAB__" };
+const ASSIST_FINAL = { role:"assistant",
+  content:"根据查询结果：报告 LAB-2026-004（电解质，2026-09-21）异常指标：血钾(2.6mmol/L, 危急)，结论：血钾危急值！已触发危急值报告流程，请立即联系开单医生或前往急诊。以上信息仅供参考，不构成诊疗建议，具体请以医生意见为准。" };
+const ASSIST_RESP = { role:"assistant",
+  content:"{\"intent\":\"emergency\",\"confidence\":0.85,\"reply\":\"该报告含危急值，请立即联系开单医生或前往急诊！\\n根据查询结果：报告 LAB-2026-004（电解质，2026-09-21）异常指标：血钾(2.6mmol/L, 危急)……\",\"requires_human\":true,\"urgency\":\"emergency\",\"follow_up_question\":null}" };
+
+const SNAPSHOTS = [
+  [],
+  [SYS_MSG, USER_MSG],
+  [SYS_MSG, USER_MSG, ASSIST_TC],
+  [SYS_MSG, USER_MSG, ASSIST_TC, TOOL_OBS],
+  [SYS_MSG, USER_MSG, ASSIST_TC, TOOL_OBS, ASSIST_FINAL],
+  [SYS_MSG, USER_MSG, ASSIST_TC, TOOL_OBS, ASSIST_FINAL],
+  [SYS_MSG, USER_MSG, ASSIST_TC, TOOL_OBS, ASSIST_FINAL],
+  [SYS_MSG, USER_MSG, ASSIST_TC, TOOL_OBS, ASSIST_FINAL, ASSIST_RESP],
+];
+
+/* ================================================================
+   渲染区
+   ================================================================ */
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+/* ---------- Tab 切换 ---------- */
+document.querySelectorAll(".tabs button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tabs button").forEach(b => b.classList.remove("on"));
+    document.querySelectorAll("section.view").forEach(v => v.classList.remove("on"));
+    btn.classList.add("on");
+    $("#view-" + btn.dataset.view).classList.add("on");
+  });
+});
+
+/* ---------- 主链路渲染（Tab1 + Tab4 复用） ---------- */
+function chainHTML(compact){
+  let h = "";
+  NODES.forEach((n, i) => {
+    const sm = compact ? " sm" : "";
+    h += '<div class="node' + (n.multi ? " multi" : "") + sm + '" data-node="' + n.id +
+         '" style="--nc:' + n.color + '" title="点击查看详情">' +
+         '<span class="no">' + n.no + "</span>" +
+         '<span class="tt">' + n.title + "</span>" +
+         '<span class="fl">' + esc(n.file) + "</span></div>";
+    const nxt = NODES[i + 1];
+    if (nxt) h += '<div class="arr' + (nxt.multi ? " multi-arr" : "") + '">→</div>';
+  });
+  return h;
+}
+$("#flowMain").innerHTML = chainHTML(false);
+$("#rpChain").innerHTML = chainHTML(true);
+
+/* Multi-Agent 开关 */
+$("#multiSwitch").addEventListener("click", function(){
+  this.classList.toggle("on");
+  document.body.classList.toggle("multi");
+});
+
+/* ---------- 节点详情弹窗 ---------- */
+const NODE_BY_ID = {};
+NODES.forEach(n => { NODE_BY_ID[n.id] = n; });
+function openModal(id){
+  const n = NODE_BY_ID[id];
+  if (!n) return;
+  $("#mTitle").textContent = (n.multi ? "[Multi-Agent] " : "") + n.title;
+  $("#mFile").textContent = n.file;
+  $("#mBody").innerHTML =
+    '<div class="msec"><div class="lab">输入 → 输出示例</div><div class="val">' + n.io + "</div></div>" +
+    '<div class="msec"><div class="lab">为什么这么设计</div><div class="val">' + n.why + "</div></div>";
+  $("#modal").classList.add("on");
+  $("#mask").classList.add("on");
+}
+function closeModal(){ $("#modal").classList.remove("on"); $("#mask").classList.remove("on"); }
+["flowMain","rpChain"].forEach(cid => {
+  document.getElementById(cid).addEventListener("click", e => {
+    const nd = e.target.closest(".node");
+    if (nd) openModal(nd.dataset.node);
+  });
+});
+$("#mClose").addEventListener("click", closeModal);
+$("#mask").addEventListener("click", closeModal);
+
+/* ---------- Tab2 旅程 ---------- */
+function msgCard(m, idx, isNew){
+  const colors = { system:"var(--yellow)", user:"var(--blue)",
+                   assistant:"var(--green)", tool:"var(--orange)" };
+  const mc = colors[m.role] || "var(--gray)";
+  let body;
+  if (m.tool_calls) body = JSON.stringify(m, null, 2);
+  else body = String(m.content);
+  if (body === "__LAB__") body = LAB_OBS;
+  let cut = "";
+  if (body.length > 460){ cut = '<span class="cut">\\n…（后续 ' + (body.length - 460) + " 字符已截断，完整内容见会话文件）</span>"; body = body.slice(0, 460); }
+  return '<div class="msg" style="--mc:' + mc + '"><div class="mh">' +
+    '<span class="role">[' + m.role + "]</span>" +
+    '<span class="idx">#' + idx + "</span>" +
+    (isNew ? '<span class="new">本步新增</span>' : "") +
+    "</div>" + (body ? '<div class="body">' + esc(body) + cut + "</div>" : "") + "</div>";
+}
+let jwStep = 0;
+function renderJourney(){
+  const st = JOURNEY[jwStep];
+  $("#jwTitle").textContent = st.title;
+  $("#jwNote").innerHTML = st.note;
+  /* 联动：到达安全后处理(第5步)与结构化提取(第6步)时，点亮两条链路上的对应节点。
+     危急值升级与提取不产生 tracer 事件，旅程快照即为"真实发生过"的演示。 */
+  hlChainNodes(jwStep === 5 ? ["safety"] : jwStep === 6 ? ["extract"] : []);
+  const snap = SNAPSHOTS[jwStep];
+  let h = "";
+  snap.forEach((m, i) => { h += msgCard(m, i, i === snap.length - 1 && jwStep > 0); });
+  if (jwStep === 0) h += '<div class="msg" style="--mc:var(--gray)"><div class="mh"><span class="role">[raw_messages]</span></div><div class="body">（空数组 —— 本轮对话尚未开始）</div></div>';
+  if (jwStep === 5) h += '<div class="msg" style="--mc:var(--orange)"><div class="mh"><span class="role">[安全检查]</span></div><div class="body">used=["query_lab_report"] → 注入扫描: 跳过 | 引用校验: 跳过 | 危急值: has_critical=true → 置顶警示 + 强制转人工\\nforced_human = true（确定性代码路径，不产生 tracer 事件）</div></div>';
+  if (jwStep === 6) h += '<div class="msg" style="--mc:var(--green)"><div class="mh"><span class="role">[MedicalResponse]</span><span class="new">结构化产出</span></div><div class="body">' + esc(JSON.stringify(JOURNEY[6].resp, null, 2)) + "</div></div>";
+  $("#jwMsgs").innerHTML = h;
+  $("#jwProg").textContent = "步骤 " + (jwStep + 1) + " / " + JOURNEY.length;
+  $("#jwPrev").disabled = jwStep === 0;
+  $("#jwNext").disabled = jwStep === JOURNEY.length - 1;
+  const dots = $("#jwSteps");
+  dots.innerHTML = "";
+  JOURNEY.forEach((_, i) => {
+    const b = document.createElement("button");
+    b.className = "st" + (i < jwStep ? " done" : i === jwStep ? " cur" : "");
+    b.textContent = i;
+    b.addEventListener("click", () => { jwStep = i; renderJourney(); });
+    dots.appendChild(b);
+  });
+}
+$("#jwPrev").addEventListener("click", () => { if (jwStep > 0){ jwStep--; renderJourney(); } });
+$("#jwNext").addEventListener("click", () => { if (jwStep < JOURNEY.length - 1){ jwStep++; renderJourney(); } });
+
+/* ---------- Tab4 轨迹回放 ---------- */
+const FLAT = [];
+REPLAY.forEach((turn, ti) => {
+  turn.events.forEach((ev, ei) => {
+    FLAT.push({ ti, q:turn.q, mode:turn.mode, ev, ei, total:turn.events.length });
+  });
+});
+function nodeForEvent(ev){
+  if (ev.type === "redflag_shortcut") return "redflag";
+  if (ev.type === "route") return "router";
+  if (ev.type === "injection_blocked" || ev.type === "fake_citations_removed") return "safety";
+  if (ev.type === "tool_call") return "react";
+  if (ev.type === "llm_call"){
+    if (ev.purpose === "extract") return "extract";
+    if (ev.purpose === "summarize") return "finish";
+    if (ev.purpose === "hyde" || ev.purpose === "fusion_expand" || ev.purpose === "stepback") return "assemble";
+    return "react";
+  }
+  return "input";
+}
+const NODE_LABEL = {};
+NODES.forEach(n => { NODE_LABEL[n.id] = n.no + " " + n.title; });
+
+let rpCur = 0, rpPlaying = false, rpTimer = null;
+function renderReplay(){
+  const cur = FLAT[rpCur];
+  document.querySelectorAll("#rpChain .node").forEach(nd => nd.classList.remove("hl"));
+  const nid = nodeForEvent(cur.ev);
+  const target = document.querySelector('#rpChain .node[data-node="' + nid + '"]');
+  if (target) target.classList.add("hl");
+  const ev = cur.ev;
+  let desc = "";
+  if (ev.type === "llm_call"){
+    desc = ev.demo
+      ? "结构化提取（语义演示）· 真实模式为 purpose=extract 的 LLM 调用"
+      : "LLM 调用 · purpose=" + ev.purpose +
+        " · tokens " + ev.prompt_tokens + "+" + ev.completion_tokens;
+  }
+  else if (ev.type === "tool_call") desc = "工具调用 " + ev.tool + " · " + (ev.ok ? "成功" : "失败");
+  else if (ev.type === "redflag_shortcut") desc = "急症红线短路命中：" + (ev.flags || []).join("、") + "，零 LLM 返回";
+  else if (ev.type === "route") desc = "路由 → " + ev.agent;
+  else if (ev.type === "injection_blocked") desc = "出站注入扫描命中 → 净化 + 转人工";
+  else if (ev.type === "fake_citations_removed") desc = "编造引用剔除：" + (ev.fakes || []).join("、");
+  $("#rpInfo").innerHTML =
+    '<div class="turn-q"><span class="who">👤 用户</span>' + esc(cur.q) +
+    (cur.mode === "multi" ? '<span class="mode">［Multi-Agent 模式］</span>' : "") + "</div>" +
+    '<div class="ev-meta">' +
+    '事件类型　<b class="mono">' + ev.type + (ev.demo ? '（语义演示）' : "") + "</b><br>" +
+    "发生时刻　<b>t+" + ev.ts + "s</b>（该轮第 " + (cur.ei + 1) + " / " + cur.total + " 条）<br>" +
+    "链路节点　<b class=\"mnode\">" + (NODE_LABEL[nid] || nid) + "</b><br>" +
+    "说明　　　<b>" + esc(desc) + "</b></div>";
+  const shown = Object.assign({}, ev);
+  $("#rpJson").textContent = JSON.stringify(shown, null, 2);
+  $("#rpStat").textContent = "事件 " + (rpCur + 1) + " / " + FLAT.length;
+  const dots = document.querySelectorAll(".tl-dot");
+  dots.forEach((d, i) => {
+    d.className = "tl-dot" + (i < rpCur ? " past" : i === rpCur ? " cur" : "");
+  });
+  document.querySelectorAll(".tl-turn .tq").forEach((t, i) => {
+    t.classList.toggle("now", i === cur.ti);
+  });
+}
+function renderTimeline(){
+  const box = $("#tlTurns");
+  box.innerHTML = "";
+  REPLAY.forEach((turn, ti) => {
+    const div = document.createElement("div");
+    div.className = "tl-turn";
+    let dots = '<div class="tl-dots">';
+    turn.events.forEach((ev, ei) => {
+      const gi = FLAT.findIndex(f => f.ti === ti && f.ei === ei);
+      dots += '<button class="tl-dot" data-gi="' + gi + '" title="' +
+        esc(ev.type) + '"></button>';
+    });
+    dots += "</div>";
+    div.innerHTML = '<div class="tq">' + esc(turn.q) +
+      (turn.mode === "multi" ? "（Multi）" : "") + "</div>" + dots;
+    box.appendChild(div);
+  });
+  box.querySelectorAll(".tl-dot").forEach(d => {
+    d.addEventListener("click", () => moveTo(Number(d.dataset.gi)));
+  });
+}
+function stopPlay(){
+  rpPlaying = false;
+  clearInterval(rpTimer);
+  $("#rpPlay").textContent = "▶ 播放";
+}
+function togglePlay(){
+  if (rpPlaying){ stopPlay(); return; }
+  if (rpCur >= FLAT.length - 1) rpCur = -1;
+  rpPlaying = true;
+  $("#rpPlay").textContent = "⏸ 暂停";
+  rpTimer = setInterval(() => {
+    if (rpCur < FLAT.length - 1){ rpCur++; renderReplay(); }
+    else stopPlay();
+  }, 1400);
+}
+$("#rpPlay").addEventListener("click", () => { fdOn ? fdTogglePlay() : togglePlay(); });
+$("#rpNext").addEventListener("click", () => {
+  if (fdOn){ if (rpCur < FLAT.length - 1) moveTo(rpCur + 1); }
+  else { stopPlay(); if (rpCur < FLAT.length - 1){ rpCur++; renderReplay(); } }
+});
+$("#rpPrev").addEventListener("click", () => {
+  if (fdOn){ if (rpCur > 0) moveTo(rpCur - 1); }
+  else { stopPlay(); if (rpCur > 0){ rpCur--; renderReplay(); } }
+});
+$("#rpReset").addEventListener("click", () => {
+  stopPlay(); stopFdAuto();
+  fdAnswers.fill(null);
+  rpCur = 0;
+  if (fdOn) showQuestion(0); else renderReplay();
+  updateButtons(); updateFdBrief();
+});
+
+function renderSummary(){
+  const byPurpose = {};
+  let tools = 0, other = 0;
+  FLAT.forEach(f => {
+    const ev = f.ev;
+    if (ev.demo) return;               // 语义演示事件不计入真实统计
+    if (ev.type === "llm_call"){
+      const p = ev.purpose || "?";
+      byPurpose[p] = byPurpose[p] || { n:0, pt:0, ct:0, lat:0 };
+      byPurpose[p].n++; byPurpose[p].pt += ev.prompt_tokens || 0;
+      byPurpose[p].ct += ev.completion_tokens || 0; byPurpose[p].lat += ev.latency_ms || 0;
+    } else if (ev.type === "tool_call"){ tools++; }
+    else other++;
+  });
+  let total = 0, calls = 0;
+  let h = '<tr><th>用途</th><th>调用</th><th>prompt</th><th>completion</th><th>延迟ms</th></tr>';
+  Object.keys(byPurpose).sort().forEach(p => {
+    const u = byPurpose[p];
+    total += u.pt + u.ct; calls += u.n;
+    h += "<tr><td>" + esc(p) + "</td><td>" + u.n + "</td><td>" + u.pt +
+         "</td><td>" + u.ct + "</td><td>" + Math.round(u.lat) + "</td></tr>";
+  });
+  h += '<tr><td><b>合计</b></td><td><b>LLM ' + calls + ' 次</b></td><td colspan="3">' +
+       '<b>工具调用 ' + tools + ' 次 · 规则/路由事件 ' + other +
+       ' 次（redflag_shortcut/route）· 总token ' + total +
+       '</b></td></tr>';
+  $("#rpSummary").innerHTML = h;
+}
+
+/* ================================================================
+   Tab4 跟读模式（预测测验）：每条事件先猜再揭示，按事件类型计分
+   ================================================================ */
+/* 共享知识点：解释"这个事件在链路中的角色"，多个事件复用 */
+const FD_KP = {
+  reactFirst: "知识点：ReAct 里调哪个工具由模型说了算——第一步永远是 llm_call（react() → client.chat(messages, tools)），trace 里不存在「凭空调工具」；completion_tokens=0 说明模型输出的是 tool_calls 决策而非成稿文本。",
+  reactFinal: "知识点：工具观察以 role:\"tool\" 消息回填后，再次 llm_call 生成 final 文本——final 也是一次 LLM 调用的产物，不是模板拼接；模型不再发起 tool_calls 时循环结束。",
+  toolApt: "知识点：预约类问题必须先取真实数据再回答——订单/预约事实只能来自工具返回（系统提示硬约束「禁止凭记忆编造订单」），query_appointment 返回的结构化信息就是回复的事实依据。",
+  route: "知识点：Multi-Agent 模式先路由后干活——LLM 分类（temperature=0、max_tokens=10）→ 受控词表「包含匹配」→ 子Agent 拿 registry.subset(白名单) 工具视图。分类调用与 ReAct 共用 llm_call 事件，区分特征是 completion 极短（本次仅 3 token）。",
+  toolLab: "知识点：报告解读的取数入口是 query_lab_report——lab-report 技能流程明确「不解读用户口述的数值，必须以工具返回的报告为准」；返回值里的 has_critical 字段是危急值防线的输入。",
+  critUp: "知识点：危急值升级是确定性代码路径——safety_post_process 按字段读 has_critical（而非子串匹配），为 true → 回复置顶「该报告含危急值…」并强制 requires_human=true。安全攸关的判断不交给模型自由发挥，升级本身不产生 tracer 事件。",
+  toolRag: "知识点：search_knowledge 是 RAG 检索栈入口——query → Embedder 向量化 → Backend 余弦 top-3 → sanitize_tool_output 包数据边界；政策/流程类问题必须先检索再回答（工具描述硬性要求），答案要带真实来源。",
+  extract: "知识点：上游平台只消费结构化字段——EXTRACT_SYSTEM + final → MedicalResponse（intent/confidence/urgency/requires_human…），reply 用原文不改写；急症相关（急诊/120/危急值）必须 urgency=emergency 且 requires_human=true。（mock 模式不产生 tracer 事件，本条为语义演示；mock 提取器按关键词查表，真实模式由模型判定）",
+  redflag: "知识点：急症红线不排队等 LLM——规则短路零延迟、零 LLM、零工具，直接构造 MedicalResponse(intent=emergency, confidence=1.0, requires_human=true, urgency=emergency)；规则层宁可误报不可漏报，LLM 只在结构化提取的 urgency 字段做第二路兜底。",
+  skill: "知识点：技能渐进式披露——启动时只把 name+description（约 100 token/技能）注入 system 提示，模型判断场景匹配后调 load_skill 才加载全文；解决「指令太长占爆上下文」与「指令太短执行走样」的矛盾。"
+};
+
+/* 16 题题库：ok=正确答案（即将发生的事件），ds=两个"合理但错误"的干扰项（t=文案 w=错在哪），kp=知识点，cat=计分分类 */
+const QUIZ_BANK = [
+  { cat:"llm决策·先调工具", kp:"reactFirst",
+    ok:"把对话发给模型决策（ReAct 第 1 步）",
+    ds:[ { t:"直接输出 final 回答，不再调任何工具",
+           w:"预约详情必须查真实数据（系统提示禁止编造订单）；且 ReAct 的每段输出都来自一次 llm_call——本次 completion_tokens=0，说明模型输出的是 tool_calls 决策而非成稿文本" },
+         { t:"调用工具 query_appointment 查预约单",
+           w:"query_appointment 确实马上会被调，但工具由模型决策触发——没有先问模型，registry 不知道该执行什么" } ] },
+  { cat:"工具调用·查预约", kp:"toolApt",
+    ok:"调用工具 query_appointment 查预约单详情",
+    ds:[ { t:"调用工具 query_department 推荐就诊科室",
+           w:"问的是具体预约单的状态/时间，取数入口是预约库 query_appointment；query_department 面向「看什么科」的导诊问题" },
+         { t:"把预约单号交给模型凭上下文直接回答",
+           w:"订单/预约事实只能来自工具返回（系统提示硬约束「禁止凭记忆编造订单」），模型并不掌握内部预约系统" } ] },
+  { cat:"llm决策·出final", kp:"reactFinal",
+    ok:"把对话发给模型决策（带上工具观察生成回复）",
+    ds:[ { t:"直接输出 final 回答（不再调用模型）",
+           w:"final 文本本身是一次 llm_call 的产物——本次 completion_tokens=41 就是生成的回复，不是拼接" },
+         { t:"对回复做引用校验并补参考来源",
+           w:"本轮用过的工具里没有 search_knowledge，引用校验整体旁路（零成本旁路设计）" } ] },
+  { cat:"路由分类", kp:"route",
+    ok:"调用 LLM 做意图路由分类",
+    ds:[ { t:"把对话发给子 Agent 的 ReAct 循环直接调工具",
+           w:"Multi-Agent 模式先路由后干活——第 1 条 trace 是分类 LLM（temperature=0、max_tokens=10，completion 只有 3 个 token），路由结果决定交给哪个子Agent" },
+         { t:"直接输出 final 回答",
+           w:"还没路由到子 Agent，也没有任何工具观察，不可能成稿" } ] },
+  { cat:"子Agent路由", kp:"route",
+    ok:"路由 → 交给「报告解读助理」子Agent 处理",
+    ds:[ { t:"调用工具 query_lab_report 查报告",
+           w:"先路由后干活：子Agent 拿到白名单工具视图后才开始 ReAct，本条 trace 是 route 事件（agent=报告解读助理）" },
+         { t:"把对话发给模型生成最终回复",
+           w:"分类结果要先落到具体子Agent——白名单、提示词都随子Agent 而定，不会直接成稿" } ] },
+  { cat:"llm决策·先调工具", kp:"reactFirst",
+    ok:"把对话发给模型决策（子Agent ReAct 第 1 步）",
+    ds:[ { t:"直接输出 final 解读报告（不调工具）",
+           w:"报告解读必须先取真实报告数据（技能流程第 1 步：用户没给报告号先询问，给了就先查）；本次 completion_tokens=0 说明输出的是 tool_calls 决策" },
+         { t:"调用工具 query_department 先推荐就诊科室",
+           w:"该子Agent 白名单里确实有 query_department，但解读报告第一步是取报告数据——模型选择的是 query_lab_report" } ] },
+  { cat:"危急值升级", kp:"toolLab",
+    ok:"调用工具 query_lab_report 查报告（返回 has_critical=true）",
+    ds:[ { t:"调用工具 search_knowledge 检索血钾解读科普",
+           w:"用户给的是具体报告号，取数入口是报告库 query_lab_report；科普检索面向「血钾偏低说明什么」类泛化问题" },
+         { t:"让模型根据口述数值直接解读",
+           w:"lab-report 技能流程明确「不解读知识库与报告之外的自带数值」——必须以工具返回的报告为准" } ] },
+  { cat:"危急值升级", kp:"critUp",
+    ok:"把对话发给模型决策（带上报告观察生成解读文本）",
+    ds:[ { t:"置顶危急值警示并强制转人工",
+           w:"危急值升级确实马上发生，但它在 final 生成之后、由 safety_post_process 的确定性代码完成——本条 trace 是一次 llm_call（completion_tokens=62）" },
+         { t:"直接输出 final 回答（不再调用模型）",
+           w:"final 是第二次 llm_call 的产物——带上报告观察生成，不是拼接；危急值警示也是在 final 之后才置顶的" } ] },
+  { cat:"llm决策·先调工具", kp:"reactFirst",
+    ok:"把对话发给模型决策（ReAct 第 1 步）",
+    ds:[ { t:"直接输出 final 回答医保政策",
+           w:"政策答疑必须先检索知识库（search_knowledge 工具描述明确「回答政策与流程问题前必须先调用」），模型第 1 步不会直接成稿" },
+         { t:"调用工具 query_appointment 查预约",
+           w:"与预约无关——第 1 条 trace 是 llm_call（completion_tokens=0，输出 tool_calls）而非工具调用" } ] },
+  { cat:"RAG检索", kp:"toolRag",
+    ok:"调用工具 search_knowledge 检索医院知识库",
+    ds:[ { t:"调用工具 query_department 推荐科室",
+           w:"问的是医保报销流程，不是「看什么科」；trace 记录的 tool 是 search_knowledge" },
+         { t:"让模型凭参数记忆回答医保政策",
+           w:"政策类答案必须带真实来源，凭记忆编造是幻觉源头——系统提示与工具描述都要求先检索再回答" } ] },
+  { cat:"llm决策·出final", kp:"reactFinal",
+    ok:"把对话发给模型决策（基于检索片段生成回复）",
+    ds:[ { t:"直接输出 final 回答（不再调用模型）",
+           w:"final 是 llm_call 的产物；本次 prompt_tokens=571（比第 1 步的 237 大涨）正是因为上下文里装进了检索片段" },
+         { t:"换个问法再检索一次",
+           w:"检索已返回 3 个片段（含正确小节#医保报销），模型基于片段成稿——本轮此后没有新的 tool_call" } ] },
+  { cat:"结构化提取", kp:"extract",
+    ok:"结构化提取：把回复解析成 MedicalResponse 字段",
+    ds:[ { t:"把本轮对话写入长期记忆",
+           w:"巩固长期记忆发生在会话 close()，提取在返回用户之前完成——且 mock 模式本条为语义演示（真实模式是 purpose=extract 的 llm_call）" },
+         { t:"再对回复做一轮出站注入扫描",
+           w:"注入扫描在 final 之后立即完成（本轮已运行且未命中载荷）；提取是返回前的最后一站" } ] },
+  { cat:"急症红线", kp:"redflag",
+    ok:"规则命中急症红线（胸痛）直接回复，零 LLM 调用",
+    ds:[ { t:"调用 query_appointment 查相关预约",
+           w:"胸痛是急症红线：患者安全不排队等工具/LLM——红旗短路在一切之前，直接构造 emergency MedicalResponse" },
+         { t:"交给模型分析后再回复",
+           w:"急症判定走 LLM 往返会引入延迟与漏报；规则层宁可误报不可漏报，本轮 trace 只有 1 条 redflag_shortcut 事件" } ] },
+  { cat:"llm决策·先调工具", kp:"reactFirst",
+    ok:"把对话发给模型决策（ReAct 第 1 步）",
+    ds:[ { t:"直接输出 final 科室建议（不调工具）",
+           w:"分诊问题命中 triage 技能场景——系统提示要求先 load_skill 加载完整流程再按流程执行；且第 1 条 trace 是 llm_call（completion_tokens=0）" },
+         { t:"调用工具 query_department 匹配科室",
+           w:"query_department 确实会被技能流程用到，但调哪个工具由模型决策——模型第 1 步选择的是加载技能本身" } ] },
+  { cat:"技能加载", kp:"skill",
+    ok:"调用工具 load_skill 加载 triage 分诊技能",
+    ds:[ { t:"调用工具 query_department 直接匹配科室",
+           w:"技能目录在 system 提示里只放 name+description（约 100 token/技能）；场景匹配后必须先加载完整流程再执行——trace 记录的 tool 是 load_skill" },
+         { t:"把分诊技能全文注入 system 提示",
+           w:"那是「启动时全量注入」方案，指令太长会占爆上下文；渐进式披露正是为了解决这个矛盾" } ] },
+  { cat:"llm决策·出final", kp:"reactFinal",
+    ok:"把对话发给模型决策（按技能流程生成回复）",
+    ds:[ { t:"直接输出 final 回答（不再调用模型）",
+           w:"final 是第二次 llm_call 的产物（completion_tokens=41）；prompt_tokens=453（比第 1 步的 237 大涨）正是因为技能全文进了上下文" },
+         { t:"调用工具 query_department 按流程匹配科室",
+           w:"本会话止步于技能加载后成稿（final 里先追问症状细节）；真实模式下技能第 3 步确实会调 query_department——但本条 trace 是一次 llm_call" } ] },
+];
+
+let fdOn = false, fdAuto = false, fdTimer = null;
+const fdAnswers = new Array(FLAT.length).fill(null);   // 答题状态：关掉跟读再开不丢失
+const fdAllDone = () => fdAnswers.every(a => a);
+const fdDone = () => fdAnswers.filter(Boolean).length;
+const fdOkCount = () => fdAnswers.filter(a => a && a.correct).length;
+
+/* 选项顺序按题号轮转，正确项不固定在同一个位置（同题复查时顺序稳定） */
+function fdOrder(gi){
+  const b = QUIZ_BANK[gi];
+  const opts = [{ key:0, text:b.ok }, { key:1, text:b.ds[0].t }, { key:2, text:b.ds[1].t }];
+  const r = gi % 3;
+  return opts.slice(opts.length - r).concat(opts.slice(0, opts.length - r));
+}
+function fdShort(ev){
+  if (ev.type === "llm_call"){
+    if (ev.purpose === "extract") return "结构化提取";
+    if ((ev.note || "").indexOf("路由") >= 0) return "路由分类 LLM";
+    return "LLM 决策";
+  }
+  if (ev.type === "tool_call") return "调工具 " + ev.tool;
+  if (ev.type === "route") return "路由→" + ev.agent;
+  if (ev.type === "injection_blocked") return "注入拦截";
+  if (ev.type === "fake_citations_removed") return "编造引用剔除";
+  if (ev.type === "redflag_shortcut") return "急症红线短路（" + (ev.flags || []).join("、") + "）";
+  return ev.type;
+}
+/* 出题前展示的系统状态：轮次 + 用户消息 + 本轮已发生（不剧透下一条） */
+function fdStateHTML(gi){
+  const f = FLAT[gi];
+  const prior = FLAT.filter(x => x.ti === f.ti && x.ei < f.ei).map(x => fdShort(x.ev));
+  const head = "轮次 " + (f.ti + 1) + " / " + REPLAY.length +
+    "（" + (f.mode === "multi" ? "Multi-Agent 模式" : "单 Agent") + "）";
+  const st = f.ei === 0
+    ? "用户消息：<b>「" + esc(f.q) + "」</b>已进入 chat()（急症红线检测最先运行）"
+    : "用户消息：「" + esc(f.q) + "」· 本轮已发生：<b>" + prior.map(esc).join(" → ") + "</b>";
+  return "<div>" + head + "</div><div>" + st +
+    '</div><div class="q">❓ 预测：接下来系统会做什么？（答对答错都会揭示该事件并讲解）</div>';
+}
+/* 出题：锁定事件（高亮/详情不剧透），等作答 */
+function showQuestion(gi){
+  const ans = fdAnswers[gi];
+  $("#fdQNo").textContent = "第 " + (gi + 1) + " / " + FLAT.length + " 题";
+  $("#fdState").innerHTML = fdStateHTML(gi);
+  const box = $("#fdOpts");
+  box.innerHTML = "";
+  const order = fdOrder(gi);
+  order.forEach((o, i) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "fd-opt";
+    const k = document.createElement("span");
+    k.className = "k";
+    k.textContent = "ABC"[i];
+    btn.appendChild(k);
+    btn.appendChild(document.createTextNode(o.text));   // 选项文案纯文本渲染
+    btn.disabled = !!ans;
+    btn.addEventListener("click", () => fdAnswer(gi, o.key));
+    box.appendChild(btn);
+  });
+  if (ans){ renderReplay(); fdApplyAnswer(gi, ans); }    // 复查：直接揭示 + 回放判定
+  else {
+    $("#fdFb").className = "fd-fb";
+    $("#fdFb").innerHTML = "";
+    fdRenderPending(gi);
+  }
+  if (fdAllDone()) renderFdSum(); else $("#fdSum").style.display = "none";
+  updateButtons(); updateFdBrief();
+}
+function fdRenderPending(gi){
+  document.querySelectorAll("#rpChain .node").forEach(nd => nd.classList.remove("hl"));
+  $("#rpInfo").innerHTML =
+    '<div class="ev-meta">🔒 跟读模式出题中——先在上方选择你的预测，<br>' +
+    "答完后揭示第 <b>" + (gi + 1) + " / " + FLAT.length + "</b> 条事件（节点高亮 + JSON 详情照常）。</div>";
+  $("#rpJson").textContent = "// 事件已锁定：作答后揭示";
+  $("#rpStat").textContent = "事件 " + (gi + 1) + " / " + FLAT.length + " · 出题待答";
+  const dots = document.querySelectorAll(".tl-dot");
+  dots.forEach((d, i) => {
+    d.className = "tl-dot" + (i < gi ? " past" : i === gi ? " cur pend" : "");
+  });
+  document.querySelectorAll(".tl-turn .tq").forEach((t, i) => {
+    t.classList.toggle("now", i === FLAT[gi].ti);
+  });
+}
+function fdFbHTML(gi, ans){
+  const b = QUIZ_BANK[gi];
+  if (ans.correct)
+    return '<span class="v good">✓ 答对了！</span>' + FD_KP[b.kp];
+  const wrong = b.ds[ans.pick - 1];
+  return '<span class="v bad">✗ 不对。</span>正确答案是「<b>' + esc(b.ok) + '</b>」。<br>' +
+    "你选的「" + esc(wrong.t) + "」为什么错：" + esc(wrong.w) + "。<br>" + FD_KP[b.kp];
+}
+function fdApplyAnswer(gi, ans){
+  const order = fdOrder(gi);
+  const btns = document.querySelectorAll("#fdOpts .fd-opt");
+  btns.forEach((b, i) => {
+    b.disabled = true;
+    if (order[i].key === 0) b.classList.add("ok");
+    else if (!ans.correct && order[i].key === ans.pick) b.classList.add("bad");
+  });
+  const fb = $("#fdFb");
+  fb.className = "fd-fb on " + (ans.correct ? "good" : "bad");
+  fb.innerHTML = fdFbHTML(gi, ans);
+}
+/* 作答 → 立即揭示该事件（高亮+详情照常），再决定是否自动进入下一题 */
+function fdAnswer(gi, key){
+  if (fdAnswers[gi]) return;
+  fdAnswers[gi] = { pick:key, correct:key === 0 };
+  renderReplay();
+  fdApplyAnswer(gi, fdAnswers[gi]);
+  updateButtons(); updateFdBrief();
+  if (fdAllDone()){ stopFdAuto(); renderFdSum(); }
+  else if (fdAuto){
+    fdTimer = setTimeout(() => {
+      fdTimer = null;
+      if (fdAuto && rpCur < FLAT.length - 1) moveTo(rpCur + 1);
+    }, 2600);
+  }
+}
+/* 计分：答对 X/16 + 按事件类型的错题分布 */
+function renderFdSum(){
+  const cats = {};
+  FLAT.forEach((f, gi) => {
+    const c = QUIZ_BANK[gi].cat;
+    cats[c] = cats[c] || { n:0, ok:0 };
+    cats[c].n++;
+    if (fdAnswers[gi] && fdAnswers[gi].correct) cats[c].ok++;
+  });
+  const ok = fdOkCount(), n = FLAT.length;
+  const parts = Object.keys(cats).map(c => {
+    const u = cats[c];
+    return u.ok === u.n
+      ? "「" + c + "」判断全对（" + u.ok + "/" + u.n + "）"
+      : "「" + c + "」错 " + (u.n - u.ok) + " 次（对 " + u.ok + "/" + u.n + "）";
+  });
+  $("#fdSum").innerHTML =
+    '<div class="big">🎯 跟读完成 · 答对 ' + ok + " / " + n +
+    "（" + Math.round(ok / n * 100) + "%）</div>" +
+    '<div class="dist">' + parts.join("；") + "。</div>" +
+    (ok === n
+      ? '<div class="tip">全对！链路心智模型已经就位 🎉</div>'
+      : '<div class="tip">错题已按事件类型列出——可回到 Tab1 点开对应节点读「为什么这么设计」，或关掉跟读模式自由回放对照。</div>');
+  $("#fdSum").style.display = "";
+}
+function updateFdBrief(){
+  const done = fdDone();
+  $("#fdChip").textContent = "🎯 跟读 " + done + "/" + FLAT.length +
+    (done ? " · 答对 " + fdOkCount() : "");
+  $("#fdChip").classList.toggle("done", done === FLAT.length && fdOkCount() === FLAT.length);
+}
+function updateButtons(){
+  if (!fdOn){
+    $("#rpPlay").disabled = false; $("#rpNext").disabled = false; $("#rpPrev").disabled = false;
+    return;
+  }
+  const pend = !fdAnswers[rpCur];
+  $("#rpNext").disabled = pend || rpCur >= FLAT.length - 1;
+  $("#rpPrev").disabled = rpCur === 0;
+  $("#rpPlay").disabled = pend || fdAllDone();
+}
+function stopFdAuto(){
+  fdAuto = false;
+  clearTimeout(fdTimer);
+  fdTimer = null;
+  $("#rpPlay").textContent = "▶ 播放";
+}
+/* 双模式统一入口：跟读模式下未作答的事件先出题 */
+function moveTo(gi){
+  stopPlay();
+  clearTimeout(fdTimer); fdTimer = null;
+  rpCur = Math.max(0, Math.min(FLAT.length - 1, gi));
+  if (fdOn) showQuestion(rpCur); else renderReplay();
+  if (fdOn && fdAuto) $("#rpPlay").textContent = "⏸ 暂停（作答后继续）";
+  updateButtons();
+}
+/* 自动播放 + 跟读：出题即暂停，作答揭示后延时进入下一题 */
+function fdTogglePlay(){
+  if (!fdOn || fdAllDone() || !fdAnswers[rpCur]) return;
+  if (fdAuto){ stopFdAuto(); return; }
+  if (rpCur >= FLAT.length - 1) return;
+  fdAuto = true;
+  moveTo(rpCur + 1);
+}
+/* 跟读开关：关→普通回放（答题进度保留）；再开→从当前事件继续出题/复查 */
+$("#fdSwitch").addEventListener("click", function(){
+  fdOn = !fdOn;
+  this.classList.toggle("on", fdOn);
+  stopPlay(); stopFdAuto();
+  $("#fdPanel").style.display = fdOn ? "" : "none";
+  $("#fdChip").style.display = fdOn ? "" : "none";
+  if (fdOn) showQuestion(rpCur);
+  else { renderReplay(); updateButtons(); }
+});
+
+/* ---------- Tab2 ↔ 链路联动：旅程到达 ④/⑤ 时点亮对应节点 ---------- */
+function hlChainNodes(ids){
+  document.querySelectorAll("#flowMain .node, #rpChain .node")
+    .forEach(nd => nd.classList.remove("hl"));
+  (ids || []).forEach(id => {
+    document.querySelectorAll('.node[data-node="' + id + '"]')
+      .forEach(nd => nd.classList.add("hl"));
+  });
+}
+
+/* ---------- 初始化 ---------- */
+renderJourney();
+renderTimeline();
+renderReplay();
+renderSummary();
+</script>
+</body>
+</html>
