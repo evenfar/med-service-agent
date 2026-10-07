@@ -5,5 +5,9 @@ python-dotenv>=1.0.0
 # MCP SDK 锁 v1：v2 改名 FastMCP→MCPServer 等破坏性变更（协议稳定，SDK 会漂移）
 mcp>=1.8,<2
 pytest>=8.0.0
+# API服务层，仅服务化时需要：pytest 跑 tests/test_api.py 依赖 fastapi（连带 starlette/httpx）；
+# uvicorn 仅手动启动服务时用（uvicorn app.api:app），CLI 模式无需安装
+fastapi>=0.110.0
+uvicorn>=0.29.0
 # 可选：Chroma 向量数据库后端（默认用零依赖的 local 后端，不装也能跑）
 # chromadb>=0.5.0

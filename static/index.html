@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小医 · 医疗健康 Agent（学习模式）</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%F0%9F%A9%BA%3C/text%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#11161d; --panel2:#171e28; --panel3:#1c2530;
+    --line:#26303d; --line2:#33404f;
+    --txt:#cdd6e1; --dim:#8194a6; --faint:#5b6b7b;
+    --blue:#58a6ff; --green:#3fb950; --red:#f85149; --orange:#f0883e;
+    --purple:#bc8cff; --cyan:#39c5cf; --yellow:#d29922; --gray:#8b949e;
+    --mono:Consolas,"Courier New",monospace;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{background:var(--bg); color:var(--txt);
+    font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif; font-size:14px;
+    display:flex; flex-direction:column;}
+  code,.mono{font-family:var(--mono);}
+  a{color:var(--blue); text-decoration:none;}
+  a:hover{text-decoration:underline;}
+
+  /* ---------- 顶部栏 ---------- */
+  header{background:rgba(11,15,20,.94); border-bottom:1px solid var(--line);
+    padding:12px 20px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;}
+  header h1{font-size:17px; letter-spacing:.5px;}
+  header h1 b{color:var(--blue);}
+  .hitem{color:var(--dim); font-size:12px; display:flex; align-items:center; gap:6px;}
+  .dot{width:8px; height:8px; border-radius:50%; background:var(--gray); flex:none;}
+  .dot.on{background:var(--green); box-shadow:0 0 6px var(--green);}
+  .dot.off{background:var(--yellow);}
+  #sess{font-family:var(--mono); font-size:11px; color:var(--faint);
+    max-width:170px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  select,button.btn{background:var(--panel3); color:var(--txt); border:1px solid var(--line2);
+    border-radius:6px; padding:6px 12px; cursor:pointer; font-size:13px; font-family:inherit;}
+  select:hover,button.btn:hover{border-color:var(--blue);}
+  button.btn:disabled{opacity:.35; cursor:not-allowed;}
+  button.btn.warn:hover{border-color:var(--red); color:var(--red);}
+  .spacer{flex:1;}
+
+  /* ---------- 实时处理管线条（学习模式四件套之一） ---------- */
+  #pipeline{display:flex; align-items:center; gap:5px; padding:8px 18px;
+    background:var(--panel); border-bottom:1px solid var(--line);
+    overflow-x:auto; flex:none; scrollbar-width:thin;}
+  .pnode{display:inline-flex; align-items:center; gap:5px; padding:4px 10px;
+    border-radius:8px; border:1px solid var(--line); background:var(--panel2);
+    color:var(--faint); font-size:12px; white-space:nowrap; cursor:help;
+    transition:background .25s, border-color .25s, color .25s, box-shadow .25s;
+    flex:none;}
+  .pnode.lit{background:#12283f; border-color:var(--blue); color:#dfeeff;
+    box-shadow:0 0 9px rgba(88,166,255,.4);}
+  .pnode[data-k="redflag"].lit{background:#3a1618; border-color:var(--red);
+    color:#ffd7d4; box-shadow:0 0 10px rgba(248,81,73,.5);}
+  .pnode[data-k="safety"].lit{background:#122b18; border-color:var(--green);
+    color:#d7ffe0; box-shadow:0 0 9px rgba(63,185,80,.4);}
+  .pnode.flash{animation:pflash .6s ease-out;}
+  @keyframes pflash{0%{box-shadow:0 0 0 rgba(57,197,207,0);}
+    30%{box-shadow:0 0 16px rgba(57,197,207,.85); border-color:var(--cyan);}
+    100%{box-shadow:0 0 9px rgba(88,166,255,.4);}}
+  .parrow{color:var(--faint); font-size:11px; flex:none;}
+  .ptip{margin-left:auto; font-size:10.5px; color:var(--faint); white-space:nowrap;
+    flex:none; padding-left:12px;}
+  .pbadge{display:none; font-size:9.5px; background:var(--cyan); color:#04222a;
+    border-radius:7px; padding:0 5px; font-family:var(--mono); font-weight:bold;}
+  .pnode.showbadge .pbadge{display:inline-block;}
+  .ptag{display:none; font-size:9.5px; color:var(--red); border:1px solid var(--red);
+    border-radius:6px; padding:0 4px;}
+  .pnode.short .ptag{display:inline-block;}
+
+  /* ---------- 主体两栏 ---------- */
+  main{flex:1; display:grid; grid-template-columns:minmax(0,1fr) 400px; gap:0;
+    min-height:0;}
+  @media (max-width:980px){ main{grid-template-columns:1fr;} #side{display:none;} }
+
+  /* ---------- 左：聊天区 ---------- */
+  #chatwrap{display:flex; flex-direction:column; min-width:0; min-height:0;
+    border-right:1px solid var(--line);}
+  #msgs{flex:1; overflow-y:auto; padding:22px 26px; display:flex;
+    flex-direction:column; gap:14px;}
+  .row{display:flex; flex-direction:column; max-width:78%;}
+  .row.user{align-self:flex-end; align-items:flex-end;}
+  .row.bot{align-self:flex-start; align-items:flex-start; position:relative;}
+  .who{font-size:11px; color:var(--faint); margin-bottom:4px; font-family:var(--mono);}
+  .bubble{border-radius:12px; padding:10px 14px; line-height:1.75; word-break:break-word;
+    white-space:pre-wrap; font-size:13.5px;}
+  .row.user .bubble{background:#1c3a5f; border:1px solid #2d5b8f; color:#e8f2ff;
+    border-bottom-right-radius:4px;}
+  .row.bot .bubble{background:var(--panel2); border:1px solid var(--line2);
+    border-bottom-left-radius:4px;}
+  .row.err .bubble{background:#2d1618; border:1px solid #6e2a2c; color:#ffb3ad;}
+  .badges{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;}
+  .bdg{font-size:10.5px; padding:1px 8px; border-radius:9px; border:1px solid var(--line2);
+    color:var(--dim); font-family:var(--mono);}
+  .bdg.intent{color:var(--cyan); border-color:#1f4e52;}
+  .bdg.u-routine{color:var(--dim);} .bdg.u-attention{color:var(--yellow);}
+  .bdg.u-urgent{color:var(--orange);} .bdg.u-emergency{color:var(--red); border-color:#6e2a2c;}
+  .bdg.human{color:#fff; background:var(--red); border-color:var(--red);}
+  .fuq{font-size:12px; color:var(--orange); margin-top:5px;}
+  .typing{display:inline-flex; gap:4px; padding:4px 2px;}
+  .typing i{width:6px; height:6px; border-radius:50%; background:var(--dim);
+    animation:blink 1.2s infinite;}
+  .typing i:nth-child(2){animation-delay:.2s;} .typing i:nth-child(3){animation-delay:.4s;}
+  @keyframes blink{0%,60%,100%{opacity:.25;} 30%{opacity:1;}}
+
+  /* 复盘按钮：完成的气泡右上角悬停出现（学习模式四件套之四） */
+  .replay-btn{position:absolute; top:-8px; right:-6px; font-size:10px;
+    padding:1px 8px; border-radius:9px; border:1px solid var(--line2);
+    background:var(--panel3); color:var(--dim); cursor:pointer;
+    font-family:inherit; opacity:.55; transition:opacity .15s, border-color .15s;}
+  .row.bot:hover .replay-btn{opacity:1;}
+  .replay-btn:hover{border-color:var(--purple); color:var(--purple);}
+
+  /* ---------- 引导实验卡片（学习模式四件套之三） ---------- */
+  #expcard{border-bottom:1px solid var(--line); background:var(--panel); flex:none;}
+  .exphead{display:flex; align-items:center; gap:10px; padding:8px 20px;
+    cursor:pointer; user-select:none;}
+  .exphead b{font-size:13px; color:var(--txt);}
+  .exphead .exphint{font-size:11px; color:var(--faint);}
+  .exphead .foldmark{margin-left:auto; font-size:11px; color:var(--faint); flex:none;}
+  #expcard.fold #expchips{display:none;}
+  #expchips{display:flex; flex-wrap:wrap; gap:8px; padding:0 20px 10px 20px;}
+  .expchip{font-size:11.5px; color:#9fc3ea; border:1px solid #2a4a6e;
+    border-radius:12px; padding:3px 12px; cursor:pointer; background:var(--panel2);
+    font-family:inherit;}
+  .expchip:hover{color:#cfe6ff; border-color:var(--blue); background:#173050;}
+
+  /* 实验观察点卡片（渲染在消息流里，属于发起点的那一轮） */
+  .exp-obs{align-self:stretch; max-width:100%; border:1px dashed var(--line2);
+    border-radius:10px; padding:10px 14px; background:rgba(88,166,255,.05);
+    transition:border-color .3s, box-shadow .3s;}
+  .exp-obs h4{font-size:12.5px; color:var(--blue); margin-bottom:5px;}
+  .exp-obs .exp-q{font-size:11.5px; color:var(--dim); margin-bottom:4px;}
+  .exp-obs ol{margin:2px 0 0 18px; font-size:12px; color:var(--dim); line-height:1.9;}
+  .exp-obs .vslot{margin-top:8px;}
+  .exp-obs .chk{font-size:12px; line-height:2;}
+  .exp-obs .chk .ok{color:var(--green); font-weight:bold;}
+  .exp-obs .chk .bad{color:var(--red); font-weight:bold;}
+  .exp-obs .allhit-t{color:var(--green); font-weight:bold; margin-top:4px; font-size:12.5px;}
+  .exp-obs.allhit{border:1px solid var(--green);
+    box-shadow:0 0 10px rgba(63,185,80,.28); background:rgba(63,185,80,.05);}
+
+  /* ---------- 输入区 ---------- */
+  #inputbar{border-top:1px solid var(--line); padding:14px 20px; background:var(--panel);}
+  #chips{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;}
+  .chip{font-size:11.5px; color:var(--dim); border:1px solid var(--line2);
+    border-radius:12px; padding:3px 11px; cursor:pointer; background:var(--panel2);}
+  .chip:hover{color:var(--blue); border-color:var(--blue);}
+  .inrow{display:flex; gap:10px;}
+  #inp{flex:1; background:var(--panel2); border:1px solid var(--line2); color:var(--txt);
+    border-radius:8px; padding:10px 14px; font-size:14px; font-family:inherit; resize:none;
+    height:44px; line-height:22px;}
+  #inp:focus{outline:none; border-color:var(--blue);}
+  #send{background:#173a5e; border-color:#2d5b8f; color:#cfe6ff; padding:0 26px;
+    font-size:14px; border-radius:8px;}
+  #send:hover:not(:disabled){border-color:var(--blue);}
+
+  /* 复盘模式：锁定输入与实验区 */
+  body.replaying #inputbar, body.replaying #expcard{opacity:.4; pointer-events:none;}
+
+  /* 动效敏感用户：关闭管线闪烁/事件入场动画，只保留状态色 */
+  @media (prefers-reduced-motion: reduce){
+    .pnode.flash, .ev, .typing i{animation:none !important;}
+    .pnode{transition:none;}
+  }
+
+  /* ---------- 右：思考过程面板 ---------- */
+  #side{display:flex; flex-direction:column; min-height:0; background:var(--panel);}
+  #side .shead{padding:12px 16px; border-bottom:1px solid var(--line); display:flex;
+    align-items:center; gap:8px;}
+  #side .shead h2{font-size:14px; color:var(--txt);}
+  #side .shead .cnt{font-size:11px; color:var(--faint); font-family:var(--mono);}
+  #side .shead .clr{margin-left:auto; font-size:11px; color:var(--faint);
+    background:none; border:none; cursor:pointer; font-family:inherit;}
+  #side .shead .clr:hover{color:var(--red);}
+  #evts{flex:1; overflow-y:auto; padding:14px 16px 20px; display:flex;
+    flex-direction:column; gap:8px;}
+  .turn-sep{font-size:11px; color:var(--blue); font-family:var(--mono); margin:8px 0 2px;
+    border-top:1px dashed var(--line2); padding-top:8px; word-break:break-all;}
+  .turn-sep:first-child{border-top:none; margin-top:0; padding-top:0;}
+  .ev{border:1px solid var(--line); border-left:3px solid var(--ec,var(--gray));
+    background:var(--panel2); border-radius:8px; padding:7px 11px;
+    animation:pop .18s ease-out;}
+  @keyframes pop{from{opacity:0; transform:translateY(5px);} to{opacity:1;}}
+  .ev .t{display:flex; align-items:center; gap:7px; font-size:12px;}
+  .ev .t .name{font-family:var(--mono); font-weight:bold; color:var(--ec,var(--gray));}
+  .ev .t .ts{margin-left:auto; font-size:10px; color:var(--faint); font-family:var(--mono);}
+  /* 教学注解行（学习模式四件套之二）：浅色小字，一眼看懂事件含义 */
+  .ev .note{font-size:11px; color:#6e8299; margin-top:4px; line-height:1.6;
+    padding-left:1px;}
+  .ev .d{font-size:11px; color:var(--dim); margin-top:3px; line-height:1.65;
+    font-family:var(--mono); word-break:break-all; max-height:120px; overflow:auto;}
+  .ev details.evjson{margin-top:4px;}
+  .ev details.evjson summary{font-size:10.5px; color:var(--faint); cursor:pointer;
+    user-select:none; font-family:var(--mono);}
+  .ev details.evjson summary:hover{color:var(--blue);}
+  .ev details.evjson pre{font-size:10.5px; color:var(--dim); background:var(--panel3);
+    border-radius:6px; padding:6px 8px; margin-top:4px; max-height:180px;
+    overflow:auto; font-family:var(--mono); white-space:pre-wrap; word-break:break-all;}
+  .ok{color:var(--green);} .bad{color:var(--red);}
+  #evts .empty{color:var(--faint); font-size:12px; line-height:2; padding:8px 2px;}
+  #evts .empty code{color:var(--cyan);}
+  #evts .rp-banner{font-size:12px; color:var(--purple); padding:4px 2px 8px;
+    border-bottom:1px dashed var(--line2); margin-bottom:6px;}
+
+  /* 复盘控制条（面板底部，进入复盘时出现） */
+  #replaybar{display:none; align-items:center; gap:6px; padding:8px 14px;
+    border-top:1px solid var(--line); background:var(--panel2); flex:none;}
+  #replaybar.on{display:flex;}
+  #replaybar .rprog{font-size:11px; color:var(--purple); font-family:var(--mono);
+    margin-right:auto;}
+  .rbtn{background:var(--panel3); color:var(--txt); border:1px solid var(--line2);
+    border-radius:6px; padding:3px 9px; cursor:pointer; font-size:12px; font-family:inherit;}
+  .rbtn:hover{border-color:var(--purple); color:var(--purple);}
+  .rbtn.exit{color:var(--orange);}
+
+  /* 本轮指标小结行（面板最底部，学习模式四件套之四） */
+  #metrics{border-top:1px solid var(--line); padding:8px 16px; font-size:11.5px;
+    color:var(--dim); font-family:var(--mono); background:var(--panel); flex:none;}
+
+  /* 滚动条 */
+  ::-webkit-scrollbar{width:9px; height:9px;}
+  ::-webkit-scrollbar-thumb{background:var(--panel3); border-radius:5px;}
+  ::-webkit-scrollbar-thumb:hover{background:var(--line2);}
+  ::-webkit-scrollbar-track{background:transparent;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🩺 小医 · <b>医疗健康 Agent</b></h1>
+  <span class="hitem"><span class="dot" id="hdot"></span><span id="hstat">连接中…</span></span>
+  <span class="hitem">会话 <span id="sess" title=""></span></span>
+  <span class="hitem">模式
+    <select id="mode">
+      <option value="mock" selected>mock（离线演示）</option>
+      <option value="real">real（真实 LLM）</option>
+    </select>
+  </span>
+  <button class="btn warn" id="reset">重置会话</button>
+  <span class="spacer"></span>
+</header>
+
+<!-- 实时处理管线（节点由 JS 按 PIPE_NODES 常量构建） -->
+<div id="pipeline" role="list" aria-label="实时处理管线：七个阶段节点"></div>
+
+<main>
+  <div id="chatwrap">
+    <!-- 引导实验：可折叠卡片 -->
+    <div id="expcard">
+      <div class="exphead" id="exphead">
+        <b>💡 引导实验</b>
+        <span class="exphint">点击预设问题自动发送，观察管线条点亮与事件注解，回复后逐条自动核对</span>
+        <span class="foldmark" id="foldmark">收起 ▲</span>
+      </div>
+      <div id="expchips"></div>
+    </div>
+    <div id="msgs">
+      <div class="row bot">
+        <div class="who">小医</div>
+        <div class="bubble">您好，我是健康助手小医。可以帮您查预约、咨询用药、解读检验报告、
+解答医保政策。出现胸痛、呼吸困难等急症时我会立即给出 120 急诊指引。
+顶部管线条会实时点亮本轮的处理阶段，右侧面板逐条解读我的"思考过程"，
+也可以点「💡引导实验」按剧本观察一次完整运行。回复完成后气泡角上有「复盘▶」可重播全程。</div>
+      </div>
+    </div>
+    <div id="inputbar">
+      <div id="chips">
+        <span class="chip">帮我查一下预约 GH-2026-001</span>
+        <span class="chip">布洛芬怎么吃</span>
+        <span class="chip">帮我看看报告 LAB-2026-004</span>
+        <span class="chip">医保报销流程是什么</span>
+        <span class="chip">我突然胸痛</span>
+      </div>
+      <div class="inrow">
+        <textarea id="inp" placeholder="描述您的症状或问题…（Enter 发送，Shift+Enter 换行）"></textarea>
+        <button id="send">发送</button>
+      </div>
+    </div>
+  </div>
+
+  <aside id="side">
+    <div class="shead">
+      <h2>🧠 Agent 思考过程</h2>
+      <span class="cnt" id="evcnt">0 events</span>
+      <button class="clr" id="evclear" title="清空面板">清空</button>
+    </div>
+    <div id="evts">
+      <div class="empty">等待消息…<br>
+        发送后这里将实时滚动 SSE 事件：<br>
+        <code>llm_call / tool_call / route</code><br>
+        <code>redflag_shortcut / injection_blocked</code><br>
+        <code>fake_citations_removed</code><br>
+        mock 模式同样有完整事件流。</div>
+    </div>
+    <div id="replaybar">
+      <span class="rprog" id="rprog">复盘 0/0</span>
+      <button class="rbtn" id="rFirst" title="回到开头">⏮</button>
+      <button class="rbtn" id="rPrev" title="上一个事件">◀</button>
+      <button class="rbtn" id="rPlay" title="播放 / 暂停">⏸</button>
+      <button class="rbtn" id="rNext" title="下一个事件">⏭</button>
+      <button class="rbtn exit" id="rExit" title="退出复盘">✖ 退出复盘</button>
+    </div>
+    <div id="metrics"><span id="mtxt">本轮: —（发送消息后开始统计）</span></div>
+  </aside>
+</main>
+
+<script>
+"use strict";
+/* =====================================================================
+   学习模式四件套（叠加在聊天前端之上，零后端改动）：
+     1. 实时管线条   —— 7 个处理阶段节点随 SSE 事件点亮
+     2. 事件教学注解 —— 每类事件附一行"它在干嘛"的浅色小字
+     3. 引导实验     —— 6 个预设剧本：发送前看观察点，done 后逐条核对
+     4. 指标+复盘    —— 本轮 LLM/工具/token 小结，气泡可逐事件重播
+   安全红线：所有用户/API 数据一律 textContent 渲染（事件参数可能含尖括号）。
+   ===================================================================== */
+
+/* ---------------- 基础状态 ---------------- */
+const $ = (id) => document.getElementById(id);
+const sessId = (crypto.randomUUID ? crypto.randomUUID()
+                                   : "s-" + Date.now() + "-" + Math.random().toString(36).slice(2, 10));
+$("sess").textContent = sessId; $("sess").title = sessId;
+let busy = false;        // 一轮请求进行中
+let inReplay = false;    // 复盘模式中（禁发送）
+let replay = null;       // 复盘状态 {events, idx, playing, timer, doneSeen}
+let lastLive = null;     // 最近一轮实时数据 {events, done}，退出复盘时恢复
+let activeExp = null;    // 进行中的引导实验 {exp, card}
+let curTurn = {events: [], done: null, finished: false};  // 当前实时轮的采集
+
+const INTENT_LABELS = {greeting:"问候", appointment:"挂号预约", medication:"用药咨询",
+  lab_report:"报告解读", policy:"政策咨询", emergency:"急症", other:"其他"};
+const URGENCY_LABELS = {routine:"常规", attention:"留意", urgent:"紧急", emergency:"急症"};
+const EV_STYLE = {
+  llm_call:        {icon:"🧠", color:"var(--purple)"},
+  tool_call:       {icon:"🔧", color:"var(--cyan)"},
+  route:           {icon:"🔀", color:"var(--blue)"},
+  redflag_shortcut:{icon:"🚨", color:"var(--red)"},
+  injection_blocked:{icon:"🛡", color:"var(--yellow)"},
+  fake_citations_removed:{icon:"✂️", color:"var(--orange)"},
+};
+
+/* =====================================================================
+   四件套之一：实时处理管线条
+   ===================================================================== */
+
+/* 七个节点的静态定义（label + 一行职责说明，title 悬停展示） */
+const PIPE_NODES = [
+  {k:"redflag", label:"① 急症红线",
+   tip:"规则层急症检查：胸痛/呼吸困难/大出血等受控词表，命中即零LLM直接120急诊指引"},
+  {k:"ctx", label:"② 上下文组装",
+   tip:"拼装发给模型的上下文：system提示 + 技能目录 + 长短期记忆 + 历史摘要 + 近期消息"},
+  {k:"react", label:"③ ReAct循环",
+   tip:"思考→调用工具→[观察结果]回填 循环，直至模型给出最终回答；🔧徽标为本轮工具调用次数"},
+  {k:"safety", label:"④ 安全后处理",
+   tip:"回复出站前的防线：注入扫描 / 引用真实性校验 / 危急值升级转人工"},
+  {k:"extract", label:"⑤ 结构化提取",
+   tip:"LLM 结构化输出 intent / urgency / confidence / reply 等字段"},
+  {k:"memory", label:"⑥ 记忆压缩",
+   tip:"短期记忆更新、历史超阈值时摘要压缩（长期巩固发生在会话关闭时）"},
+  {k:"persist", label:"⑦ 持久化",
+   tip:"会话与记忆写入磁盘，服务重启或刷新页面后可恢复"},
+];
+
+const pipeEls = {};        // 节点 key → DOM 元素
+let pipeToolCount = 0;     // 本轮工具调用计数（③的🔧徽标）
+let pipeTimers = [];       // done 级联点亮的延时器（新一轮要可取消）
+
+/* 构建管线条 DOM（节点 + 箭头交替） */
+function buildPipeline(){
+  const bar = $("pipeline");
+  PIPE_NODES.forEach((n, i) => {
+    if (i > 0){
+      const arrow = document.createElement("span");
+      arrow.className = "parrow"; arrow.textContent = "▸";
+      bar.appendChild(arrow);
+    }
+    const el = document.createElement("div");
+    el.className = "pnode"; el.dataset.k = n.k; el.title = n.tip;
+    const lbl = document.createElement("span"); lbl.textContent = n.label;
+    const badge = document.createElement("span"); badge.className = "pbadge";
+    const tag = document.createElement("span");
+    tag.className = "ptag"; tag.textContent = "被①短路";
+    el.appendChild(lbl); el.appendChild(badge); el.appendChild(tag);
+    bar.appendChild(el);
+    pipeEls[n.k] = el;
+  });
+  /* 行尾提示：告诉使用者节点可悬停、新一轮会重置 */
+  const tip = document.createElement("span");
+  tip.className = "ptip";
+  tip.textContent = "悬停节点看职责 · 新消息即重置";
+  bar.appendChild(tip);
+}
+
+/* 每轮新消息发送前：全暗、清计数、撤销级联延时与短路标签 */
+function pipelineReset(){
+  pipeTimers.forEach(clearTimeout); pipeTimers = [];
+  pipeToolCount = 0;
+  Object.values(pipeEls).forEach(el =>
+    el.classList.remove("lit", "flash", "short", "showbadge"));
+}
+
+/* 点亮单个节点（幂等） */
+function pipelineLightUp(k){
+  const el = pipeEls[k];
+  if (el && !el.classList.contains("lit")) el.classList.add("lit");
+}
+
+/* 事件 → 节点映射（SSE 事件驱动点亮）：
+   redflag_shortcut→①；llm_call(purpose含react)→③（顺带②）；
+   tool_call→③（闪烁+🔧N徽标）；injection_blocked/fake_citations_removed→④ */
+function pipelineApplyEvent(e){
+  if (e.type === "redflag_shortcut"){
+    pipelineLightUp("redflag");
+  } else if (e.type === "llm_call" &&
+             String(e.purpose || "").indexOf("react") >= 0){
+    pipelineLightUp("ctx");      // 有模型调用说明上下文已组装
+    pipelineLightUp("react");
+  } else if (e.type === "tool_call"){
+    pipelineLightUp("ctx");
+    pipelineLightUp("react");
+    pipeToolCount += 1;          // 🔧N 计数徽标 + 闪烁，强调"模型在自主用工具"
+    const el = pipeEls.react;
+    el.querySelector(".pbadge").textContent = "🔧" + pipeToolCount;
+    el.classList.add("showbadge");
+    el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
+  } else if (e.type === "injection_blocked" || e.type === "fake_citations_removed"){
+    pipelineLightUp("safety");
+  }
+}
+
+/* 收到 done：⑤⑥⑦ 每 200ms 级联点亮；
+   若本轮零 LLM（只有急症红线短路）——③④保持暗灰并盖"被①短路"标签。
+   这是全页面最重要的教学时刻：规则层急症短路意味着 ReAct 与安全
+   后处理整段被跳过，零 LLM 调用、零延迟返回120急诊指引。              */
+function pipelineFinish(hasLLM, instant){
+  if (!hasLLM){
+    pipeEls.react.classList.add("short");
+    pipeEls.safety.classList.add("short");
+  }
+  const seq = ["extract", "memory", "persist"];
+  if (instant){ seq.forEach(k => pipelineLightUp(k)); return; }
+  seq.forEach((k, i) =>
+    pipeTimers.push(setTimeout(() => pipelineLightUp(k), 200 * (i + 1))));
+}
+
+function hasLLMCalls(events){
+  return events.some(e => e.type === "llm_call");
+}
+
+/* =====================================================================
+   四件套之二：事件卡教学注解（知识映射表）
+   ===================================================================== */
+function annotateEvent(e){
+  switch (e.type){
+    case "llm_call": {
+      const p = String(e.purpose || "");
+      if (p === "react") return "模型正在决定：直接回答，还是调用工具？";
+      if (p.indexOf("react:") === 0) return "子Agent[" + p.slice(6) + "] 的 ReAct 循环";
+      if (p === "extract") return "结构化提取：从回复中抽取意图/紧急度/置信度等字段";
+      if (p.indexOf("memory") === 0) return "记忆管线：从对话中提取需要记住的要点事实";
+      if (p === "summarize") return "历史压缩：把较早的对话摘要成一段，给上下文腾位置";
+      if (p === "router") return "意图路由判定：决定这条消息交给哪个子Agent（挂号/用药/报告/急诊）";
+      if (p === "embedding") return "向量化：把文本编码成向量用于知识库检索";
+      return "模型调用（用途 " + p + "）";
+    }
+    case "tool_call":
+      return e.ok
+        ? "模型自主决定调用 " + e.tool + "——执行结果将作为[观察结果]回填对话"
+        : "工具执行失败，错误也会回喂给模型自纠";
+    case "route":
+      return "意图路由：这条消息交给 " + e.agent + " 处理";
+    case "redflag_shortcut":
+      return "规则命中急症红线！零LLM调用，直接返回120急诊指引";
+    case "injection_blocked":
+      return "检测到可疑注入内容已拦截并转人工";
+    case "fake_citations_removed":
+      return "引用校验：回复里出现了检索结果中不存在的来源标记，已删除（抗幻觉）";
+    default:
+      return "";
+  }
+}
+
+/* ---------------- 通用工具 ---------------- */
+function scrollBottom(el){ el.scrollTop = el.scrollHeight; }
+
+function addMsg(role, text, extra){
+  const row = document.createElement("div");
+  row.className = "row " + (role === "user" ? "user" : "bot");
+  const who = document.createElement("div"); who.className = "who";
+  who.textContent = role === "user" ? "你" : "小医";
+  const bub = document.createElement("div"); bub.className = "bubble"; bub.textContent = text;
+  row.appendChild(who); row.appendChild(bub);
+  if (extra) row.appendChild(extra);
+  $("msgs").appendChild(row); scrollBottom($("msgs"));
+  return bub;
+}
+
+function renderResp(bub, r){
+  bub.textContent = r.reply;
+  const badges = document.createElement("div"); badges.className = "badges";
+  const mk = (cls, txt) => {
+    const b = document.createElement("span"); b.className = "bdg " + cls;
+    b.textContent = txt; return b;
+  };
+  badges.appendChild(mk("intent", "意图:" + (INTENT_LABELS[r.intent] || r.intent)));
+  badges.appendChild(mk("u-" + (r.urgency || "routine"),
+                        "紧急度:" + (URGENCY_LABELS[r.urgency] || r.urgency || "常规")));
+  if (typeof r.confidence === "number")
+    badges.appendChild(mk("", "置信度:" + Math.round(r.confidence * 100) + "%"));
+  if (r.requires_human) badges.appendChild(mk("human", "建议转人工医生"));
+  bub.parentElement.appendChild(badges);
+  if (r.follow_up_question){
+    const fu = document.createElement("div"); fu.className = "fuq";
+    fu.textContent = "❓ 追问：" + r.follow_up_question;
+    bub.parentElement.appendChild(fu);
+  }
+  scrollBottom($("msgs"));
+}
+
+function newTurnSep(q){
+  const el = document.createElement("div"); el.className = "turn-sep";
+  el.textContent = "▸ " + q;
+  const empty = $("evts").querySelector(".empty");
+  if (empty) empty.remove();
+  $("evts").appendChild(el); scrollBottom($("evts"));
+}
+
+/* ---------------- 事件卡渲染（注解 + 详情 + 可展开JSON） ---------------- */
+let evCount = 0;   // 实时事件计数（复盘重播不计入）
+function addEventCard(e, opts){
+  opts = opts || {};
+  const st = EV_STYLE[e.type] || {icon:"•", color:"var(--gray)"};
+  const card = document.createElement("div"); card.className = "ev";
+  card.style.setProperty("--ec", st.color);
+  const t = document.createElement("div"); t.className = "t";
+  const name = document.createElement("span"); name.className = "name";
+  name.textContent = st.icon + " " + e.type;
+  const ts = document.createElement("span"); ts.className = "ts";
+  ts.textContent = (e.ts != null ? "+" + e.ts.toFixed(2) + "s" : "");
+  t.appendChild(name); t.appendChild(ts); card.appendChild(t);
+
+  /* 教学注解：一行浅色小字（textContent 渲染，event 字段可能含尖括号） */
+  const note = annotateEvent(e);
+  if (note){
+    const nd = document.createElement("div"); nd.className = "note";
+    nd.textContent = "💡 " + note;
+    card.appendChild(nd);
+  }
+
+  /* 原有 mono 详情行 */
+  let d = "";
+  if (e.type === "llm_call")
+    d = `purpose=${e.purpose}  tokens=${e.prompt_tokens}+${e.completion_tokens}` +
+        (e.latency_ms != null ? `  ${e.latency_ms}ms` : "");
+  else if (e.type === "tool_call")
+    d = `${e.tool}(${JSON.stringify(e.arguments)}) → ` +
+        `${e.ok ? "ok" : "fail"}` +
+        (e.latency_ms != null ? `  ${e.latency_ms}ms` : "");
+  else if (e.type === "route") d = "→ " + e.agent;
+  else if (e.type === "redflag_shortcut") d = "命中: " + (e.flags || []).join(", ");
+  else if (e.type === "injection_blocked")
+    d = `可疑注入已拦截（原文 ${e.original_len} 字符），强制转人工`;
+  else if (e.type === "fake_citations_removed")
+    d = "删除伪造引用: " + (e.fakes || []).join(", ");
+  else d = JSON.stringify(e).slice(0, 200);
+
+  const body = document.createElement("div"); body.className = "d";
+  body.textContent = d; card.appendChild(body);   // textContent：不可信数据不入HTML
+
+  /* 可展开的原始 JSON 详情（复盘时自动展开） */
+  const det = document.createElement("details"); det.className = "evjson";
+  const sum = document.createElement("summary"); sum.textContent = "原始 JSON";
+  const pre = document.createElement("pre");
+  pre.textContent = safeJSON(e);
+  det.appendChild(sum); det.appendChild(pre);
+  if (opts.replay) det.open = true;   // 复盘：事件卡自动展开注解/详情
+  card.appendChild(det);
+
+  $("evts").appendChild(card); scrollBottom($("evts"));
+  if (!opts.replay && !opts.noCount)
+    $("evcnt").textContent = (++evCount) + " events";   // 复盘/恢复面板不重复计数
+}
+
+function safeJSON(v){
+  try { return JSON.stringify(v, null, 2); }
+  catch(_){ return String(v); }
+}
+
+/* =====================================================================
+   四件套之四（上）：本轮指标小结
+   ===================================================================== */
+function calcMetrics(list){
+  let llm = 0, tool = 0, tokens = 0;
+  for (const e of list){
+    if (e.type === "llm_call"){
+      llm += 1;
+      tokens += (e.prompt_tokens || 0) + (e.completion_tokens || 0);
+    } else if (e.type === "tool_call"){
+      tool += 1;
+    }
+  }
+  return {llm, tool, tokens};
+}
+
+function updateMetrics(list, suffix){
+  const m = calcMetrics(list);
+  $("mtxt").textContent = "本轮: " + m.llm + "次LLM · " + m.tool + "次工具 · ~" +
+                          m.tokens + "tokens" + (suffix ? "（" + suffix + "）" : "");
+}
+
+/* =====================================================================
+   四件套之三：引导实验（预设剧本 + 观察点 + 完成后自动核对）
+   ---------------------------------------------------------------------
+   每个实验 = {id, label, message, watch[], checks(ctx)}：
+   - watch：发送前展示的观察点清单（先有预期，再看现象）；
+   - checks：done 后基于本轮 events + done 的客户端核对（纯字符串/类型
+     匹配，不发任何请求）；全 ✓ 时卡片边框变绿并加「🎯全部命中」。
+   ctx = {events, done, tools(tool_call事件列表), llmCount}
+   ===================================================================== */
+const EXPERIMENTS = [
+  { id:"apt", label:"查预约(两段式ReAct)",
+    message:"帮我查一下预约 GH-2026-001",
+    watch:["管线③会亮且带🔧1徽标",
+           "事件顺序: llm→tool(query_appointment)→llm",
+           "回复含「呼吸内科」"],
+    checks: (c) => [
+      {ok: c.tools.some(t => t.tool === "query_appointment"), text:"tool_call 含 query_appointment"},
+      {ok: c.llmCount === 2, text:"有两个 llm_call（llm→tool→llm，实际 " + c.llmCount + " 次）"},
+      {ok: !!(c.done && c.done.reply && c.done.reply.indexOf("呼吸内科") >= 0),
+       text:"回复含「呼吸内科」"},
+    ]},
+  { id:"redflag", label:"急症红线(零LLM)",
+    message:"我突然胸痛",
+    watch:["只有①亮，③④标「被短路」",
+           "无任何 llm_call 事件",
+           "回复含120且转人工=是"],
+    checks: (c) => [
+      {ok: c.llmCount === 0, text:"无任何 llm_call（零LLM短路）"},
+      {ok: c.events.some(e => e.type === "redflag_shortcut"),
+       text:"有 redflag_shortcut 事件"},
+      {ok: !!(c.done && c.done.reply && c.done.reply.indexOf("120") >= 0),
+       text:"回复含「120」急诊指引"},
+      {ok: !!(c.done && c.done.requires_human), text:"requires_human = true（转人工）"},
+    ]},
+  { id:"med", label:"用药咨询",
+    message:"布洛芬怎么吃",
+    watch:["tool_call = query_medicine",
+           "回复含「布洛芬」的适应症与用法用量"],
+    checks: (c) => [
+      {ok: c.tools.some(t => t.tool === "query_medicine"),
+       text:"tool_call = query_medicine"},
+      {ok: !!(c.done && c.done.reply && c.done.reply.indexOf("布洛芬") >= 0),
+       text:"回复含「布洛芬」用法信息"},
+    ]},
+  { id:"lab", label:"危急值报告",
+    message:"帮我看看报告 LAB-2026-004",
+    watch:["tool_call = query_lab_report",
+           "回复含「危急值」提示",
+           "危急值强制升级：转人工=是"],
+    checks: (c) => [
+      {ok: c.tools.some(t => t.tool === "query_lab_report"),
+       text:"tool_call = query_lab_report"},
+      {ok: !!(c.done && c.done.reply && c.done.reply.indexOf("危急值") >= 0),
+       text:"回复含「危急值」"},
+      {ok: !!(c.done && c.done.requires_human),
+       text:"requires_human = true（危急值升级转人工）"},
+    ]},
+  { id:"rag", label:"医保政策(RAG)",
+    message:"医保报销流程是什么",
+    watch:["tool_call = search_knowledge",
+           "回复带【就诊指南…】引用或「参考来源」附录"],
+    checks: (c) => [
+      {ok: c.tools.some(t => t.tool === "search_knowledge"),
+       text:"tool_call = search_knowledge"},
+      {ok: !!(c.done && c.done.reply &&
+              (c.done.reply.indexOf("参考来源") >= 0 ||
+               c.done.reply.indexOf("【就诊指南") >= 0)),
+       text:"回复带【就诊指南…】引用或「参考来源」附录"},
+    ]},
+  { id:"write", label:"链式写操作",
+    message:"取消我的预约 GH-2026-001",
+    watch:["两个tool: query_appointment → cancel_appointment",
+           "链式调用：查询结果作为取消操作的前置上下文"],
+    checks: (c) => {
+      const names = c.tools.map(t => t.tool);
+      const i = names.indexOf("query_appointment");
+      return [
+        {ok: i >= 0 && names.indexOf("cancel_appointment") > i,
+         text:"链式调用 query_appointment → cancel_appointment"},
+        {ok: names.length >= 2,
+         text:"本轮 ≥2 次工具调用（实际 " + names.length + " 次）"},
+      ];
+    }},
+];
+
+/* 点击实验 chip：展示观察点卡片 + 自动发送该消息 */
+function runExperiment(id){
+  if (busy || inReplay) return;
+  const exp = EXPERIMENTS.find(x => x.id === id);
+  if (!exp) return;
+
+  const card = document.createElement("div"); card.className = "exp-obs";
+  const h = document.createElement("h4");
+  h.textContent = "🧪 引导实验：" + exp.label;
+  const q = document.createElement("div"); q.className = "exp-q";
+  q.textContent = "即将发送：「" + exp.message + "」　发送前先记住观察点：";
+  const ol = document.createElement("ol");
+  exp.watch.forEach(w => {
+    const li = document.createElement("li"); li.textContent = w;
+    ol.appendChild(li);
+  });
+  const slot = document.createElement("div"); slot.className = "vslot";
+  card.appendChild(h); card.appendChild(q); card.appendChild(ol); card.appendChild(slot);
+  $("msgs").appendChild(card); scrollBottom($("msgs"));
+
+  activeExp = {exp, card};
+  $("inp").value = exp.message;   // 复用统一发送路径
+  send();
+}
+
+/* done 后基于本轮 events + done 做客户端核对，逐条渲染 ✓/✗ */
+function checkExperiment(){
+  if (!activeExp) return;
+  const {exp, card} = activeExp;
+  const slot = card.querySelector(".vslot");
+  const tools = curTurn.events.filter(e => e.type === "tool_call");
+  const ctx = {events: curTurn.events, done: curTurn.done, tools,
+               llmCount: curTurn.events.filter(e => e.type === "llm_call").length};
+  let results = [];
+  try { results = exp.checks(ctx); } catch(_){ results = []; }
+
+  const head = document.createElement("div");
+  head.style.fontSize = "12px"; head.style.color = "var(--dim)";
+  head.textContent = "—— 核对结果 ——";
+  slot.appendChild(head);
+  /* 附一行本轮事实摘要：把核对依据摆出来，教学上"结论可复现" */
+  const facts = document.createElement("div");
+  facts.style.fontSize = "11.5px"; facts.style.color = "var(--faint)";
+  facts.textContent = "本轮共 " + ctx.events.length + " 个事件（"
+    + ctx.llmCount + "次LLM · " + ctx.tools.length + "次工具）";
+  slot.appendChild(facts);
+  results.forEach(res => {
+    const line = document.createElement("div"); line.className = "chk";
+    const mark = document.createElement("span");
+    mark.className = res.ok ? "ok" : "bad";
+    mark.textContent = res.ok ? "✓ " : "✗ ";
+    line.appendChild(mark);
+    line.appendChild(document.createTextNode(res.text));
+    slot.appendChild(line);
+  });
+  if (results.length && results.every(r => r.ok)){
+    card.classList.add("allhit");                       // 边框变绿
+    const t = document.createElement("div"); t.className = "allhit-t";
+    t.textContent = "🎯 全部命中";
+    slot.appendChild(t);
+  }
+  scrollBottom($("msgs"));
+  activeExp = null;
+}
+
+/* 实验中途出错（SSE error / 断流）：卡片给出提示，不留悬挂状态 */
+function abortExperiment(){
+  if (!activeExp) return;
+  const slot = activeExp.card.querySelector(".vslot");
+  const line = document.createElement("div"); line.className = "chk";
+  line.textContent = "⚠ 本轮出错，未完成核对";
+  slot.appendChild(line);
+  activeExp = null;
+}
+
+/* =====================================================================
+   四件套之四（下）：复盘重播
+   ===================================================================== */
+
+/* 给完成的气泡挂"复盘▶"按钮，并把本轮数据存在行元素上 */
+function attachReplayButton(row, turnData){
+  const btn = document.createElement("button");
+  btn.className = "replay-btn"; btn.type = "button";
+  btn.textContent = "复盘▶"; btn.title = "复盘重播本轮事件";
+  btn.addEventListener("click", () => replayTurn(turnData));
+  row.appendChild(btn);
+}
+
+function clearEventPanel(replaying){
+  $("evts").innerHTML = "";
+  if (replaying){
+    const banner = document.createElement("div"); banner.className = "rp-banner";
+    banner.textContent = "⏺ 复盘模式：逐事件重播（300ms/条），管线同步点亮"
+                       + "　快捷键：← → 步进 · 空格 播放/暂停 · Esc 退出";
+    $("evts").appendChild(banner);
+  } else {
+    $("evts").innerHTML = '<div class="empty">等待消息…<br>'
+      + '发送后这里将实时滚动 SSE 事件：<br>'
+      + '<code>llm_call / tool_call / route</code><br>'
+      + '<code>redflag_shortcut / injection_blocked</code><br>'
+      + '<code>fake_citations_removed</code><br>'
+      + 'mock 模式同样有完整事件流。</div>';
+  }
+}
+
+function updateCountReplay(){
+  if (replay){
+    const txt = "复盘 " + replay.idx + "/" + replay.events.length;
+    $("evcnt").textContent = txt;
+    $("rprog").textContent = txt;   // 控制条上的进度同步刷新
+  }
+}
+
+/* 进入复盘：右侧面板清空重播本轮 events，禁用发送。
+   重播与实时流共用 pipelineApplyEvent / addEventCard，保证重播点亮
+   逻辑与真实执行完全一致——看到的就是当时发生的。                  */
+function replayTurn(td){
+  if (busy || !td || !td.events) return;
+  if (inReplay) exitReplay();          // 已在复盘：先退出旧局再开新局
+  inReplay = true;
+  replay = {events: td.events, done: td.done || null,
+            idx: 0, playing: false, timer: null, doneSeen: false};
+  $("replaybar").classList.add("on");
+  document.body.classList.add("replaying");
+  $("inp").disabled = true; $("send").disabled = true;
+  clearEventPanel(true);
+  pipelineReset();
+  updateMetrics([], "复盘中");
+  updateCountReplay();
+  startPlay();                          // 进入即自动播放
+}
+
+function startPlay(){
+  if (!replay || replay.playing) return;
+  replay.playing = true; $("rPlay").textContent = "⏸";
+  replay.timer = setInterval(() => { if (!replayStepForward()) stopPlay(); }, 300);
+}
+
+function stopPlay(){
+  if (!replay) return;
+  if (replay.timer){ clearInterval(replay.timer); replay.timer = null; }
+  replay.playing = false; $("rPlay").textContent = "▶";
+}
+
+/* 前进一步：渲染下一个事件卡 + 管线点亮；到末尾应用 done 语义 */
+function replayStepForward(){
+  if (!replay) return false;
+  if (replay.idx >= replay.events.length){
+    if (!replay.doneSeen){
+      replay.doneSeen = true;
+      pipelineFinish(hasLLMCalls(replay.events));       // 级联⑤⑥⑦/短路标签
+      updateMetrics(replay.events, "复盘完成");
+    }
+    updateCountReplay();
+    return false;
+  }
+  const e = replay.events[replay.idx++];
+  addEventCard(e, {replay: true});
+  pipelineApplyEvent(e);
+  updateMetrics(replay.events.slice(0, replay.idx), "复盘中");
+  updateCountReplay();
+  return true;
+}
+
+/* 全量重建到第 n 个事件（后退/回到开头用） */
+function replayRebuild(){
+  if (!replay) return;
+  stopPlay();
+  clearEventPanel(true);
+  pipelineReset();
+  replay.doneSeen = (replay.idx === replay.events.length);
+  for (let i = 0; i < replay.idx; i++){
+    pipelineApplyEvent(replay.events[i]);
+    addEventCard(replay.events[i], {replay: true});
+  }
+  if (replay.doneSeen)
+    pipelineFinish(hasLLMCalls(replay.events), true);    // 重建时不做延时级联
+  updateMetrics(replay.events.slice(0, replay.idx),
+                replay.doneSeen ? "复盘完成" : "复盘中");
+  updateCountReplay();
+}
+
+/* 退出复盘：恢复实时面板（重建最近一轮的管线与指标），解除发送锁定 */
+function exitReplay(){
+  if (!replay) return;
+  stopPlay();
+  replay = null; inReplay = false;
+  $("replaybar").classList.remove("on");
+  document.body.classList.remove("replaying");
+  $("inp").disabled = busy; $("send").disabled = busy;
+  clearEventPanel(false);
+  pipelineReset();
+  if (lastLive && lastLive.events.length){
+    lastLive.events.forEach(e => { addEventCard(e, {noCount: true}); pipelineApplyEvent(e); });
+    if (lastLive.done) pipelineFinish(hasLLMCalls(lastLive.events), true);
+    updateMetrics(lastLive.events);
+  } else {
+    $("mtxt").textContent = "本轮: —（发送消息后开始统计）";
+  }
+  $("evcnt").textContent = evCount + " events";
+}
+
+/* ---------------- SSE 解析（fetch + ReadableStream） ---------------- */
+async function streamChat(message, mode){
+  const url = "/chat/stream?session_id=" + encodeURIComponent(sessId) +
+              "&message=" + encodeURIComponent(message) +
+              "&mode=" + encodeURIComponent(mode);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 180000); // 3 分钟兜底超时（覆盖整个流）
+  const resp = await fetch(url, {signal: ctrl.signal});
+  if (!resp.ok || !resp.body){
+    clearTimeout(timer);
+    let detail = "HTTP " + resp.status;
+    try { detail = (await resp.json()).detail || detail; } catch(_){}
+    throw new Error(detail);
+  }
+  const reader = resp.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  return await new Promise((resolve, reject) => {
+    const settle = (fn) => (v) => { clearTimeout(timer); fn(v); };
+    const pump = async () => {
+      try{
+        while (true){
+          const {done, value} = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, {stream: true});
+          let i;
+          while ((i = buf.indexOf("\n\n")) >= 0){
+            const block = buf.slice(0, i); buf = buf.slice(i + 2);
+            let ev = "message", data = [];
+            for (const line of block.split("\n")){
+              if (line.startsWith("event:")) ev = line.slice(6).trim();
+              else if (line.startsWith("data:")) data.push(line.slice(5).trim());
+            }
+            if (!data.length) continue;
+            const payload = data.join("\n");
+            if (ev === "done") return settle(resolve)(JSON.parse(payload));
+            if (ev === "error") return settle(reject)(new Error(JSON.parse(payload).detail || "服务内部错误"));
+            try { handleTurnEvent(JSON.parse(payload)); } catch(_){}
+          }
+        }
+        settle(resolve)(null); // 流意外结束且没有 done
+      } catch(e){ settle(reject)(e); }
+    };
+    pump();
+  });
+}
+
+/* =====================================================================
+   实时轮生命周期：startTurn → handleTurnEvent* → finishTurn
+   （错误路径只定格状态、不收尾：学习 UI 保持已点亮的部分不被破坏）
+   ===================================================================== */
+
+/* 每轮发送时：管线全暗、指标归零、事件采集清空 */
+function startTurn(){
+  curTurn = {events: [], done: null, finished: false};
+  pipelineReset();
+  updateMetrics([], "进行中");
+}
+
+/* SSE 事件落地：采集 + 管线点亮 + 事件卡（实时模式） */
+function handleTurnEvent(e){
+  curTurn.events.push(e);
+  pipelineApplyEvent(e);
+  addEventCard(e);
+  updateMetrics(curTurn.events, "进行中");
+}
+
+/* done 落地：管线收尾 + 指标定格 + 复盘按钮 + 实验核对 */
+function finishTurn(row, r){
+  curTurn.done = r; curTurn.finished = true;
+  lastLive = {events: curTurn.events.slice(), done: r};
+  pipelineFinish(hasLLMCalls(curTurn.events));
+  updateMetrics(curTurn.events);
+  attachReplayButton(row, lastLive);
+  checkExperiment();
+}
+
+/* ---------------- 发送流程 ---------------- */
+async function send(){
+  const inp = $("inp");
+  const message = inp.value.trim();
+  if (!message || busy || inReplay) return;
+  busy = true; inp.value = ""; inp.disabled = true; $("send").disabled = true;
+  let mode = $("mode").value;
+  if (mode === "real" &&
+      !confirm("即将切换到真实 LLM 模式：会调用付费 API，响应可能较慢。继续吗？")){
+    busy = false; inp.disabled = false; $("send").disabled = false; inp.focus(); return;
+  }
+  startTurn();
+  addMsg("user", message);
+  newTurnSep(message);
+  const bub = addMsg("bot", "");
+  bub.innerHTML = '<span class="typing"><i></i><i></i><i></i></span>';
+  try{
+    const r = await streamChat(message, mode);
+    if (!r) throw new Error("连接中断（未收到完整响应）");
+    renderResp(bub, r);
+    finishTurn(bub.parentElement, r);
+  } catch(e){
+    /* 错误路径不破坏学习 UI：保留已点亮管线与已采指标，无复盘按钮 */
+    bub.parentElement.className = "row err";   // 错误气泡，不崩页面
+    bub.textContent = "⚠️ 出错了：" + (e.name === "AbortError" ? "请求超时" : e.message) +
+                      "\n请稍后重试，或点击「重置会话」后重新发送。";
+    lastLive = {events: curTurn.events.slice(), done: null};
+    updateMetrics(curTurn.events, "已中断");
+    abortExperiment();
+  } finally {
+    busy = false; inp.disabled = false; $("send").disabled = false; inp.focus();
+  }
+}
+
+/* ---------------- 顶部操作 ---------------- */
+async function resetSession(){
+  if (!confirm("确定重置当前会话？历史与短期记忆将清空（长期记忆保留）。")) return;
+  try{
+    const res = await fetch("/reset", {method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({session_id: sessId, mode: $("mode").value})});
+    if (!res.ok) throw new Error("HTTP " + res.status);
+  } catch(e){ alert("重置失败：" + e.message); return; }
+  if (inReplay) exitReplay();       // 复盘中重置：先退出恢复实时态
+  $("msgs").innerHTML = ""; evCount = 0; $("evcnt").textContent = "0 events";
+  clearEventPanel(false);
+  pipelineReset();
+  lastLive = null; activeExp = null;
+  $("mtxt").textContent = "本轮: —（发送消息后开始统计）";
+  addMsg("bot", "会话已重置。有什么新的健康问题？");
+}
+
+async function checkHealth(){
+  try{
+    const r = await (await fetch("/health")).json();
+    $("hdot").className = "dot on";
+    $("hstat").textContent = r.offline ? "在线（环境未配真实模型）" : "在线";
+  } catch(_){
+    $("hdot").className = "dot off";
+    $("hstat").textContent = "离线";
+  }
+}
+
+/* ---------------- 绑定 ---------------- */
+buildPipeline();
+
+/* 引导实验 chips */
+EXPERIMENTS.forEach(exp => {
+  const chip = document.createElement("button");
+  chip.className = "expchip"; chip.type = "button";
+  chip.textContent = exp.label;
+  chip.addEventListener("click", () => runExperiment(exp.id));
+  $("expchips").appendChild(chip);
+});
+
+/* 引导实验卡片折叠/展开 */
+$("exphead").addEventListener("click", () => {
+  const folded = $("expcard").classList.toggle("fold");
+  $("foldmark").textContent = folded ? "展开 ▼" : "收起 ▲";
+});
+
+/* 复盘控制条 */
+$("rFirst").addEventListener("click", () => { if (replay){ replay.idx = 0; replayRebuild(); } });
+$("rPrev").addEventListener("click", () => { if (replay && replay.idx > 0){ replay.idx--; replayRebuild(); } });
+$("rNext").addEventListener("click", () => { stopPlay(); replayStepForward(); });
+$("rPlay").addEventListener("click", () => {
+  if (!replay) return;
+  if (replay.playing){ stopPlay(); return; }
+  if (replay.idx >= replay.events.length){ replay.idx = 0; replayRebuild(); }  // 播完再按=重播
+  startPlay();
+});
+$("rExit").addEventListener("click", exitReplay);
+
+/* 复盘键盘快捷键：← 上一个 / → 下一个 / 空格 播放暂停 / Esc 退出。
+   仅在复盘模式下接管；输入框聚焦时不抢按键。 */
+document.addEventListener("keydown", (ev) => {
+  if (!inReplay || !replay) return;
+  const tag = (ev.target && ev.target.tagName) || "";
+  if (tag === "TEXTAREA" || tag === "INPUT" || tag === "SELECT") return;
+  if (ev.key === "ArrowRight"){ ev.preventDefault(); stopPlay(); replayStepForward(); }
+  else if (ev.key === "ArrowLeft"){
+    ev.preventDefault();
+    if (replay.idx > 0){ replay.idx--; replayRebuild(); }
+  }
+  else if (ev.key === " "){ ev.preventDefault(); $("rPlay").click(); }
+  else if (ev.key === "Escape"){ exitReplay(); }
+});
+
+$("send").addEventListener("click", send);
+$("reset").addEventListener("click", resetSession);
+$("evclear").addEventListener("click", () => {
+  if (inReplay) return;              // 复盘面板由重播器管理，不允许手清
+  $("evts").innerHTML = ""; evCount = 0; $("evcnt").textContent = "0 events";
+});
+$("inp").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); send(); }
+});
+document.querySelectorAll("#chips .chip").forEach(c =>
+  c.addEventListener("click", () => { if (!inReplay){ $("inp").value = c.textContent; $("inp").focus(); } }));
+checkHealth();
+</script>
+</body>
+</html>
