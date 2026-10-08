@@ -275,7 +275,6 @@ class MockLLMClient(BaseLLMClient):
         text = messages[-1]["content"] if messages else ""
         fields = schema.model_fields
         if "intent" in fields and "reply" in fields:          # MedicalResponse
-            from app.schemas.response import IntentType, UrgencyLevel
             return schema(**self._medical_fields(text))
         if "interaction_summary" in fields:                    # 长期记忆提取
             return schema(facts=[], interaction_summary="")

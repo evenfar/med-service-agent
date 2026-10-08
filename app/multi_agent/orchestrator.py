@@ -13,7 +13,7 @@ from app.agent.base import BaseAgentRuntime
 from app.agent.memory.manager import MemoryManager
 from app.agent.rag.retriever import build_retriever
 from app.agent.skills.loader import SkillManager
-from app.agent.tools.registry import ToolDeps, ToolRegistry, build_tool_registry
+from app.agent.tools.registry import ToolDeps, build_tool_registry
 from app.agent.tracer import Tracer
 from app.config.settings import Settings
 from app.multi_agent.agents import SUBAGENT_SPECS
